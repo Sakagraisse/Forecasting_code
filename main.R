@@ -9,4 +9,4 @@ data <- data[,9:479]
 #Extract the second column
 data2 <- data[,2]
 
-ftfguyvjh
+ftfguyvjhfg
