@@ -8,4 +8,14 @@ data <- data[,9:479]
 #Remove the
 #Extract the second column
 data2 <- data[,2]
-kjgkktfkuzflzf
+
+#graph of oil price
+g
+
+#change format of table to long table
+library(reshape2)
+data3 <- melt(data2)
+
+#ARIMA MODEL
+install.packages("forecast")
+
