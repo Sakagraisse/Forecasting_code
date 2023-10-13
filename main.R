@@ -8,3 +8,4 @@ data <- data[,9:479]
 #Remove the
 #Extract the second column
 data2 <- data[,2]
+kjgkktfkuzflzf
