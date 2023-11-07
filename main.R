@@ -1,5 +1,3 @@
-# Read Data ---------------------------------------------------------------
-
 #clean space
 rm(list = ls())
 # ##import data in excell format from the first table only
@@ -9,12 +7,12 @@ install.packages("reshape2")
 library(readxl)
 
 rm(list = ls())
-data <- read_excel("~/Desktop/Econ Forcasting/CPI_Forecast/CPI_2020.xlsx", sheet = 1, col_names = TRUE, skip = 1)
+data <- read_excel("CPI_2020.xlsx", sheet = 1, col_names = TRUE, skip = 1)
 #check which type is data
 class(data)
 
 #Remove the first 5 columns
-data <- data[,12:479]
+data <- data[,12:504]
 
 #Remove the columns 2
 data <- data[,-2]
@@ -56,6 +54,7 @@ data <- data.frame(lapply(data, as.numeric))
 data$Year <- as.Date(as.numeric(data$Year), origin = "1899-12-30")
 
 ## data cleaning end ##
+
 
 
 #Plots ----------
