@@ -113,11 +113,8 @@ checkresiduals (arma_model_mortage_rate)
 # Summarize the fitted ARMA model
 summary(arma_model_mortage_rate)
 
-# Number of future data points you wish to forecast
-forecast_horizon <- 12
-
 # Use the fitted ARMA model to forecast future mortgage rates
-future_mortgage_rate_forecast <- forecast(arma_model_mortage_rate, h=forecast_horizon)
+future_mortgage_rate_forecast <- forecast(arma_model_mortage_rate, h=12)
 
 # The forecast object contains point forecasts, lower and upper confidence intervals
 print(future_mortgage_rate_forecast)
@@ -128,12 +125,13 @@ plot(future_mortgage_rate_forecast)
 # Extract the point forecasts of the future mortgage rates
 future_mortgage_rate_values <- future_mortgage_rate_forecast$mean
 
-# Now you can use these forecasted mortgage rate values as the exogenous variable in your rent forecast
-rent_forecast <- forecast(fit4, xreg=future_mortgage_rate_values)
-
+# Forecasted mortgage rate values as the exogenous variable in the rent forecast
+rent_forecast <- forecast(fit4, xreg=future_mortgage_rate_values, h=12)
 # Plot the forecast of rent
 plot(rent_forecast)
 
 # Print the forecasted rent values
 print(rent_forecast)
-checkresiduals (rent_forecast)
+
+
+
