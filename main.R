@@ -77,3 +77,63 @@ data2 <- data2[1:181,]
 #create data for "rent" from data starting at lign 309 to 489 (to merge with mortgage rate)
 data4 <- data[309:489,]
 data2$rent <- data4$Rent
+
+###### Rent forecast -----
+install.packages("forecast")
+install.packages("tseries")
+library(forecast)
+library(tseries)
+
+#check for stationarity of the data
+adf.test(data2$rent)
+# Difference the data to achieve stationarity
+data2$rent_diff <- c(NA, diff(data2$rent, differences = 1))
+# Create the differenced rent time series excluding the first NA observation
+rent_diff <- diff(data2$rent, differences = 1)
+# Run your Augmented Dickey-Fuller test again on the differenced rent
+adf.test(rent_diff)
+# Difference the mortgage rate series and remove the first NA value
+mortgage_rate_diff <- diff(data2$mortgage.rate, differences = 1)
+mortgage_diff <- diff(data2$mortgage.rate, differences = 1)
+
+#ARIMA model for rent  with mortgage rate as exogenous variable
+fit4 <- auto.arima(rent_diff, xreg = mortgage_diff, seasonal=FALSE, approximation=FALSE, trace=TRUE)
+summary(fit4)
+checkresiduals(fit4)
+
+
+## Forecast of the mortgage rate
+mortgage_rates_ts <- ts(data2$mortgage.rate, start=c(2008, 9), frequency=12)
+
+# Fit an ARMA model to the historical mortgage rate data
+# Chek the data is stationary before proceeding.
+arma_model_mortage_rate <- auto.arima(mortgage_diff, seasonal=FALSE, stepwise=TRUE, approximation=FALSE)
+checkresiduals (arma_model_mortage_rate)
+
+# Summarize the fitted ARMA model
+summary(arma_model_mortage_rate)
+
+# Number of future data points you wish to forecast
+forecast_horizon <- 12
+
+# Use the fitted ARMA model to forecast future mortgage rates
+future_mortgage_rate_forecast <- forecast(arma_model_mortage_rate, h=forecast_horizon)
+
+# The forecast object contains point forecasts, lower and upper confidence intervals
+print(future_mortgage_rate_forecast)
+
+# Plot the forecast to visualize
+plot(future_mortgage_rate_forecast)
+
+# Extract the point forecasts of the future mortgage rates
+future_mortgage_rate_values <- future_mortgage_rate_forecast$mean
+
+# Now you can use these forecasted mortgage rate values as the exogenous variable in your rent forecast
+rent_forecast <- forecast(fit4, xreg=future_mortgage_rate_values)
+
+# Plot the forecast of rent
+plot(rent_forecast)
+
+# Print the forecasted rent values
+print(rent_forecast)
+checkresiduals (rent_forecast)
