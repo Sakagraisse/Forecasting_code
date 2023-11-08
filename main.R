@@ -53,7 +53,12 @@ data <- data.frame(lapply(data, as.numeric))
 #format the first column of date to display a date from the excel way of counting using openxlsx package
 data$Year <- as.Date(as.numeric(data$Year), origin = "1899-12-30")
 
+
+#####Rent data quarterly-----
+#Mortgage rate quarterly
 data2 <- read_excel("mortgage_rate_c.xlsx", sheet = 1, col_names = TRUE)
+#Mortgage rate quarterly
+
 #rename first column "mortgage rate"
 colnames(data2)[1] <- "mortgage.rate"
 #rename second column "date"
@@ -62,21 +67,25 @@ colnames(data2)[2] <- "date"
 #order date
 data2 <- data2[order(data2$date),]
 
-#create monthly data for mortgage rate in duplicating the data 3 times to have monthly value instead of quarterly
-data2 <- data2[rep(row.names(data2), each = 3), ]
-
 #create dates
-data2$dates <- seq(as.Date("2008-09-01"), by = "month", length.out = nrow(data2))
-
+data2$dates <- seq(as.Date("2008-09-01"), by = "3 months", length.out = nrow(data2))
 #delete date column
 data2 <- data2[,-2]
+#order date
+data2 <- data2[order(data2$date),]
 
-#keep data2 until line 181
-data2 <- data2[1:181,]
-
-#create data for "rent" from data starting at lign 309 to 489 (to merge with mortgage rate)
-data4 <- data[309:489,]
-data2$rent <- data4$Rent
+#Keep only Rent and Year variables from data from 309:489
+data3 <- data[309:489,]
+#keep only Rent and Year variables from data
+data3 <- data3[,c(1,156)]
+#convert monthly rent data to quarterly by taking the value of the last month of the quarter, 4 observatios per year
+data3 <- data3[seq(1, nrow(data3), 3), ]
+#Merge data3 and data 2
+data3$mortagage.rate <- data2$mortgage.rate
+#Quarterly Rent data
+data4 <- data[,c(1,156)]
+#convert monthly Rent data to quarterly from data4 by taking the value of the last month of each the quarter, starting from march
+data4 <- data4[seq(3, nrow(data4), 3), ]
 
 ###### Rent forecast -----
 install.packages("forecast")
@@ -85,41 +94,42 @@ library(forecast)
 library(tseries)
 
 #check for stationarity of the data
-adf.test(data2$rent)
+adf.test(data4$Rent)
+#take the first difference of the data
+#data4$Rent_diff <- c(NA, diff(data4$Rent, differences = 1))
+#check for stationarity of the data
+#adf.test(data4$Rent_diff)
+
+
 # Difference the data to achieve stationarity
-data2$rent_diff <- c(NA, diff(data2$rent, differences = 1))
+#data2$rent_diff <- c(NA, diff(data2$rent, differences = 1))
 # Create the differenced rent time series excluding the first NA observation
-rent_diff <- diff(data2$rent, differences = 1)
+#rent_diff <- diff(data2$rent, differences = 1)
 # Run your Augmented Dickey-Fuller test again on the differenced rent
-adf.test(rent_diff)
+#adf.test(rent_diff)
 # Difference the mortgage rate series and remove the first NA value
-mortgage_rate_diff <- diff(data2$mortgage.rate, differences = 1)
-mortgage_diff <- diff(data2$mortgage.rate, differences = 1)
+#mortgage_rate_diff <- diff(data2$mortgage.rate, differences = 1)
+#mortgage_diff <- diff(data2$mortgage.rate, differences = 1)
 
 #ARIMA model for rent  with mortgage rate as exogenous variable
-fit4 <- auto.arima(rent_diff, xreg = mortgage_diff, seasonal=FALSE, approximation=FALSE, trace=TRUE)
-summary(fit4)
-checkresiduals(fit4)
+fit <- auto.arima(data3$Rent, xreg = data3$mortagage.rate, seasonal=FALSE, approximation=FALSE, trace=TRUE)
+summary(fit)
+checkresiduals(fit)
 
 
 ## Forecast of the mortgage rate
 # Create a time series object of the mortgage rate data
-mortgage_rates_ts <- ts(data2$mortgage.rate, start=c(2008, 9), frequency=12)
-adf.test(mortgage_rates_ts)
-mortgage_diff <- diff(mortgage_rates_ts, differences = 1)
-adf.test(mortgage_diff)
+#mortgage_rates_ts <- ts(data2$mortgage.rate, start=c(2008, 9), frequency=12)
+adf.test(data3$mortagage.rate)
+#mortgage_diff <- diff(mortgage_rates_ts, differences = 1)
+#adf.test(mortgage_diff)
 
 # Fit an ARMA model to the historical mortgage rate data
-
-arma_model_mortage_rate <- auto.arima(mortgage_diff, seasonal=FALSE, stepwise=TRUE, approximation=FALSE)
-
-checkresiduals (arma_model_mortage_rate)
-
-# Summarize the fitted ARMA model
-summary(arma_model_mortage_rate)
+fit2 <- auto.arima(data3$mortagage.rate, seasonal=FALSE, stepwise=TRUE, approximation=FALSE)
+checkresiduals (fit2)
 
 # Use the fitted ARMA model to forecast future mortgage rates
-future_mortgage_rate_forecast <- forecast(arma_model_mortage_rate, h=12)
+future_mortgage_rate_forecast <- forecast(fit2, h=12)
 
 # The forecast object contains point forecasts, lower and upper confidence intervals
 print(future_mortgage_rate_forecast)
@@ -131,7 +141,7 @@ plot(future_mortgage_rate_forecast)
 future_mortgage_rate_values <- future_mortgage_rate_forecast$mean
 
 # Forecasted mortgage rate values as the exogenous variable in the rent forecast
-rent_forecast <- forecast(fit4, xreg=future_mortgage_rate_values, h=12)
+rent_forecast <- forecast(fit, xreg=future_mortgage_rate_values, h=12)
 # Plot the forecast of rent
 plot(rent_forecast)
 
@@ -140,24 +150,4 @@ print(rent_forecast)
 
 #Performance evaluation
 library(ggplot2)
-# Plot the historical data
-# Check the class of data2$rent to confirm it's a time series object
-class(data2$rent)
-data2$rent_ts <- ts(data2$rent, start=c(1983, 1), frequency=12)
-
-p <- autoplot(data2$rent_ts) +
-  labs(title = "Spaghetti Graph for Rent Forecast",
-       x = "Time",
-       y = "Rent")
-print(p)
-# Add the mean forecast to the plot
-p <- p + autolayer(rent_forecast$mean, series="Point Forecast")
-
-# Now plot the time series with the forecast layer
-print(p)
-
-
-
-
-
 
