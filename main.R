@@ -71,5 +71,9 @@ data2$dates <- seq(as.Date("2008-09-01"), by = "month", length.out = nrow(data2)
 #delete date column
 data2 <- data2[,-2]
 
-#keep data2 until line 156
+#keep data2 until line 181
 data2 <- data2[1:181,]
+
+#create data for "rent" from data starting at lign 309 to 489 (to merge with mortgage rate)
+data4 <- data[309:489,]
+data2$rent <- data4$Rent
