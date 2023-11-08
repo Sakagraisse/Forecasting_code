@@ -103,11 +103,16 @@ checkresiduals(fit4)
 
 
 ## Forecast of the mortgage rate
+# Create a time series object of the mortgage rate data
 mortgage_rates_ts <- ts(data2$mortgage.rate, start=c(2008, 9), frequency=12)
+adf.test(mortgage_rates_ts)
+mortgage_diff <- diff(mortgage_rates_ts, differences = 1)
+adf.test(mortgage_diff)
 
 # Fit an ARMA model to the historical mortgage rate data
-# Chek the data is stationary before proceeding.
+
 arma_model_mortage_rate <- auto.arima(mortgage_diff, seasonal=FALSE, stepwise=TRUE, approximation=FALSE)
+
 checkresiduals (arma_model_mortage_rate)
 
 # Summarize the fitted ARMA model
@@ -132,6 +137,27 @@ plot(rent_forecast)
 
 # Print the forecasted rent values
 print(rent_forecast)
+
+#Performance evaluation
+library(ggplot2)
+# Plot the historical data
+# Check the class of data2$rent to confirm it's a time series object
+class(data2$rent)
+data2$rent_ts <- ts(data2$rent, start=c(1983, 1), frequency=12)
+
+p <- autoplot(data2$rent_ts) +
+  labs(title = "Spaghetti Graph for Rent Forecast",
+       x = "Time",
+       y = "Rent")
+print(p)
+# Add the mean forecast to the plot
+p <- p + autolayer(rent_forecast$mean, series="Point Forecast")
+
+# Now plot the time series with the forecast layer
+print(p)
+
+
+
 
 
 
