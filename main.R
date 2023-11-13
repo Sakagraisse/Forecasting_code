@@ -57,8 +57,6 @@ data$Year <- as.Date(as.numeric(data$Year), origin = "1899-12-30")
 #####Rent data quarterly-----
 #Mortgage rate quarterly
 data2 <- read_excel("mortgage_rate_c.xlsx", sheet = 1, col_names = TRUE)
-#Mortgage rate quarterly
-
 #rename first column "mortgage rate"
 colnames(data2)[1] <- "mortgage.rate"
 #rename second column "date"
@@ -72,7 +70,7 @@ data2$dates <- seq(as.Date("2008-09-01"), by = "3 months", length.out = nrow(dat
 #delete date column
 data2 <- data2[,-2]
 #order date
-data2 <- data2[order(data2$date),]
+data2 <- data2[order(data2$dates),]
 
 #Keep only Rent and Year variables from data from 309:489
 data3 <- data[309:489,]
