@@ -181,12 +181,19 @@ library(lubridate)
 oil_price <- read.csv("MCOILWTICO.csv", header = TRUE, sep = ",")
 #convert oil_price$Date to R format from YYYY.MM.DD to monthly format
 oil_price$Date <- as.Date(oil_price$DATE, format = "%Y-%m-%d")
-#import usdchf.csv
-exchange_rate <- read.csv("usdchf.csv", header = TRUE, sep = ",")
-
-
-
-
+#import usdchf.csv AFTER line 16
+exchange_rate <- read.csv("EXSZUS.csv", header = TRUE, sep = ",")
+exchange_rate$USD_to_CHF <- 1 / exchange_rate$EXSZUS
+exchange_rate$Date <- as.Date(exchange_rate$DATE, format = "%Y-%m-%d")
+exchange_rate <-  subset(exchange_rate, Date >= "1986-01-01")
+exchange_rate <-  subset(exchange_rate, Date <= "2023-09-01")
+oil_price$USD_to_CHF <- exchange_rate$USD_to_CHF
+oil_price$Date_CHECK <- exchange_rate$Date
+# check if dates are the same
+oil_price$Date_CHECK == oil_price$Date
+rm(exchange_rate)
+# convert oil_price$MCOILWTICO to swiss francs
+oil_price$OIL_CHF <- oil_price$MCOILWTICO * oil_price$USD_to_CHF
 
 #convert to qurterly
 #create dates
@@ -194,42 +201,61 @@ oil_price$Date_Q <- quarter(oil_price$Date)
 oil_price$Date_Y <- year(oil_price$Date)
 quarterly_averages <- oil_price %>%
   group_by(Date_Q,Date_Y) %>%
-  summarise(average_value = mean(MCOILWTICO, na.rm = TRUE))
+  summarise(average_value = mean(OIL_CHF, na.rm = TRUE))
 
 quarterly_averages  <- quarterly_averages [order(quarterly_averages $Date_Y),]
 quarterly_averages$Date_q <- seq(as.Date("1986-01-01"), by = "3 months", length.out = nrow(quarterly_averages))
 
+#plot quarterly_averages and monthly oil_price
+plot(quarterly_averages$Date_q, quarterly_averages$average_value, type = "l", col = "red")
+lines(oil_price$Date, oil_price$OIL_CHF, col = "blue")
+
+#plot oil in chf and usd
+plot(oil_price$Date, oil_price$OIL_CHF, type = "l", col = "red")
+lines(oil_price$Date, oil_price$MCOILWTICO, col = "blue")
+
+#Express oi price OIL_CHF in proportion of 2017Q1 prices
+oil_price_plus <- quarterly_averages
+oil_price_plus$B17 <- (oil_price_plus$average_value / oil_price_plus$average_value[which(quarterly_averages$Date_q == "2017-01-01")] ) * 100
+#plot oil in chf and usd
+plot(oil_price_plus$Date_q, oil_price_plus$B17, type = "l", col = "red")
+lines(quarterly_averages$Date_q, quarterly_averages$average_value, col = "blue")
 
 
-
-
-#import us-dollar-swiss-franc-exchange-rate-historical-chart.csv
-#exchange_rate <- read.csv("us-dollar-swiss-franc-exchange-rate-historical-chart.csv", header = TRUE, sep = ",")
-#convert exchange_rate$Date to R format from DD.MM.YYYY to monthly format
-#exchange_rate$Date <- as.Date(exchange_rate$date, format = "%d.%m.%Y")
-#import MCOILWTICO.csv
-oil_price <- read.csv("MCOILWTICO.csv", header = TRUE, sep = ",")
-#convert oil_price$Date to R format from YYYY.MM.DD to monthly format
-oil_price$Date <- as.Date(oil_price$DATE, format = "%Y.%m.%d")
-# calculate the inflation rate of oil_price
-# remove the first line of oil_price
-oil_price_plus <- oil_price[-1,]
-# remove the last line of oil_price
-oil_price_1 <- oil_price[-nrow(oil_price),]
-# calculate the inflation rate of oil_price
-oil_price_plus$rate <- (oil_price_plus$MCOILWTICO - oil_price_1$MCOILWTICO)/oil_price_1$MCOILWTICO
 #retreive heating oil in a df
 heating_oil <- data.frame(Date = data$Year, oil = data$`Heating.oil`)
-#remove date below 1986-02-01
-heating_oil <- heating_oil[which(heating_oil$Date >= "1986-02-01"),]
+#convert to qurterly
+#create dates
+heating_oil$Date_Q <- quarter(heating_oil$Date)
+heating_oil$Date_Y <- year(heating_oil$Date)
+quarterly_averages2 <- heating_oil %>%
+  group_by(Date_Q,Date_Y) %>%
+  summarise(average_value = mean(oil, na.rm = TRUE))
+
+quarterly_averages2  <- quarterly_averages2 [order(quarterly_averages2$Date_Y),]
+quarterly_averages2$Date_q <- seq(as.Date("1983-01-01"), by = "3 months", length.out = nrow(quarterly_averages2))
+
+#plot quarterly_averages and monthly oil_price
+plot(quarterly_averages2$Date_q, quarterly_averages2$average_value, type = "l", col = "red")
+lines(heating_oil$Date, heating_oil$oil, col = "blue")
+
+#plot oil in chf and heating oil oil
+plot(oil_price$Date, oil_price$OIL_CHF, type = "l", col = "red")
+lines(heating_oil$Date, heating_oil$oil, col = "blue")
+
+
+#remove date below 1986-01-01
+quarterly_averages2 <- quarterly_averages2[which(quarterly_averages2$Date_q >= "1986-02-01"),]
+#remove date below 1986-01-01
+quarterly_averages2 <- quarterly_averages2[which(quarterly_averages2$Date_q <= "2021-08-01"),]
 #remove date above 2021-08-01
-oil_price_plus <- oil_price_plus[which(heating_oil$Date <= "2021-08-01"),]
+oil_price_plus <- oil_price_plus[which(oil_price_plus$Date_q <= "2021-08-01"),]
 
 
 ## Some checks ##
 # check the lag lenght needed
 #put togheter the two time series
-dataset <- cbind(heating_oil$oil,oil_price_plus['rate'])
+dataset <- cbind(quarterly_averages2,oil_price_plus['rate'])
 var_select_result <- VARselect(dataset, lag.max = 10, type = "const")
 var_select_result$criteria
 # check for cointegration between the two time series using urca package
@@ -241,3 +267,10 @@ fit <- ecm(heating_oil$oil,xeq,xtr,includeIntercept = TRUE)
 plot(fit)
 #summary of the model
 summary(fit)
+#calculate the inflation rate of oil_price
+# remove the first line of oil_price
+oil_price_plus <- quarterly_averages[-1,]
+# remove the last line of oil_price
+oil_price_1 <- quarterly_averages[-nrow(quarterly_averages),]
+# calculate the inflation rate of oil_price
+oil_price_plus$rate <- (oil_price_plus$average_value - oil_price_1$average_value)/oil_price_1$average_value
