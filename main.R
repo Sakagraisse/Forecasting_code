@@ -181,6 +181,13 @@ library(lubridate)
 oil_price <- read.csv("MCOILWTICO.csv", header = TRUE, sep = ",")
 #convert oil_price$Date to R format from YYYY.MM.DD to monthly format
 oil_price$Date <- as.Date(oil_price$DATE, format = "%Y-%m-%d")
+#import usdchf.csv
+exchange_rate <- read.csv("usdchf.csv", header = TRUE, sep = ",")
+
+
+
+
+
 #convert to qurterly
 #create dates
 oil_price$Date_Q <- quarter(oil_price$Date)
