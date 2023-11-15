@@ -168,3 +168,69 @@ ggplot(all_data, aes(x = Time, y = Rent, color = Type)) +
   labs(title = "Actual vs Forecasted Rent", x = "Time", y = "Rent") +
   scale_color_manual(values = c("Actual" = "blue", "Forecasted" = "red")) +
   theme_minimal()
+
+
+
+##Try ecm using ecm package ##
+install.packages("dplyr")
+install.packages("lubridate")
+library(dplyr)
+library(lubridate)
+## import the data ##
+#import MCOILWTICO.csv
+oil_price <- read.csv("MCOILWTICO.csv", header = TRUE, sep = ",")
+#convert oil_price$Date to R format from YYYY.MM.DD to monthly format
+oil_price$Date <- as.Date(oil_price$DATE, format = "%Y-%m-%d")
+#convert to qurterly
+#create dates
+oil_price$Date_Q <- quarter(oil_price$Date)
+oil_price$Date_Y <- year(oil_price$Date)
+quarterly_averages <- oil_price %>%
+  group_by(Date_Q,Date_Y) %>%
+  summarise(average_value = mean(MCOILWTICO, na.rm = TRUE))
+
+quarterly_averages  <- quarterly_averages [order(quarterly_averages $Date_Y),]
+quarterly_averages$Date_q <- seq(as.Date("1986-01-01"), by = "3 months", length.out = nrow(quarterly_averages))
+
+
+
+
+
+#import us-dollar-swiss-franc-exchange-rate-historical-chart.csv
+#exchange_rate <- read.csv("us-dollar-swiss-franc-exchange-rate-historical-chart.csv", header = TRUE, sep = ",")
+#convert exchange_rate$Date to R format from DD.MM.YYYY to monthly format
+#exchange_rate$Date <- as.Date(exchange_rate$date, format = "%d.%m.%Y")
+#import MCOILWTICO.csv
+oil_price <- read.csv("MCOILWTICO.csv", header = TRUE, sep = ",")
+#convert oil_price$Date to R format from YYYY.MM.DD to monthly format
+oil_price$Date <- as.Date(oil_price$DATE, format = "%Y.%m.%d")
+# calculate the inflation rate of oil_price
+# remove the first line of oil_price
+oil_price_plus <- oil_price[-1,]
+# remove the last line of oil_price
+oil_price_1 <- oil_price[-nrow(oil_price),]
+# calculate the inflation rate of oil_price
+oil_price_plus$rate <- (oil_price_plus$MCOILWTICO - oil_price_1$MCOILWTICO)/oil_price_1$MCOILWTICO
+#retreive heating oil in a df
+heating_oil <- data.frame(Date = data$Year, oil = data$`Heating.oil`)
+#remove date below 1986-02-01
+heating_oil <- heating_oil[which(heating_oil$Date >= "1986-02-01"),]
+#remove date above 2021-08-01
+oil_price_plus <- oil_price_plus[which(heating_oil$Date <= "2021-08-01"),]
+
+
+## Some checks ##
+# check the lag lenght needed
+#put togheter the two time series
+dataset <- cbind(heating_oil$oil,oil_price_plus['rate'])
+var_select_result <- VARselect(dataset, lag.max = 10, type = "const")
+var_select_result$criteria
+# check for cointegration between the two time series using urca package
+test <- ca.jo(dataset, type = "trace", ecdet = "const", K = 2, spec = "transitory")
+#fit the model ECM
+xeq <- xtr <- oil_price_plus['rate']
+fit <- ecm(heating_oil$oil,xeq,xtr,includeIntercept = TRUE)
+#plot the model
+plot(fit)
+#summary of the model
+summary(fit)
