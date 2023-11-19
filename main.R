@@ -177,6 +177,10 @@ install.packages("lubridate")
 library(dplyr)
 library(lubridate)
 ## import the data ##
+
+######
+# 1 Crude oil price
+######
 #import MCOILWTICO.csv
 oil_price <- read.csv("MCOILWTICO.csv", header = TRUE, sep = ",")
 #convert oil_price$Date to R format from YYYY.MM.DD to monthly format
@@ -194,8 +198,7 @@ oil_price$Date_CHECK == oil_price$Date
 rm(exchange_rate)
 # convert oil_price$MCOILWTICO to swiss francs
 oil_price$OIL_CHF <- oil_price$MCOILWTICO * oil_price$USD_to_CHF
-
-#convert to qurterly
+#convert to quarterly
 #create dates
 oil_price$Date_Q <- quarter(oil_price$Date)
 oil_price$Date_Y <- year(oil_price$Date)
@@ -216,7 +219,7 @@ lines(oil_price$Date, oil_price$MCOILWTICO, col = "blue")
 
 #Express oi price OIL_CHF in proportion of 2017Q1 prices
 oil_price_plus <- quarterly_averages
-oil_price_plus$B17 <- (oil_price_plus$average_value / oil_price_plus$average_value[which(quarterly_averages$Date_q == "2017-01-01")] ) * 100
+oil_price_plus$B17 <- (oil_price_plus$average_value / oil_price_plus$average_value[which(quarterly_averages$Date_q == "2010-10-01")] ) * 100
 #plot oil in chf and usd
 plot(oil_price_plus$Date_q, oil_price_plus$B17, type = "l", col = "red")
 lines(quarterly_averages$Date_q, quarterly_averages$average_value, col = "blue")
@@ -240,8 +243,8 @@ plot(quarterly_averages2$Date_q, quarterly_averages2$average_value, type = "l", 
 lines(heating_oil$Date, heating_oil$oil, col = "blue")
 
 #plot oil in chf and heating oil oil
-plot(oil_price$Date, oil_price$OIL_CHF, type = "l", col = "red")
-lines(heating_oil$Date, heating_oil$oil, col = "blue")
+plot(oil_price_plus$Date_q, oil_price_plus$B17, type = "l", col = "red")
+lines(quarterly_averages2$Date_q, quarterly_averages2$average_value, col = "blue")
 
 
 #remove date below 1986-01-01
