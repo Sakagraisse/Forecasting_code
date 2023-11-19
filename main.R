@@ -174,6 +174,10 @@ ggplot(all_data, aes(x = Time, y = Rent, color = Type)) +
 ##Try ecm using ecm package ##
 install.packages("dplyr")
 install.packages("lubridate")
+install.packages("urca")
+install.packages("ecm")
+library(ecm)
+library(urca)
 library(dplyr)
 library(lubridate)
 ## import the data ##
@@ -218,87 +222,83 @@ ECM_Data <- merge(ECM_Data, heating_oil, by.x = "Date", by.y = "Date", all.x = T
 #remove heating_oil
 rm(heating_oil)
 
-
-
-
-
-
-#convert to quarterly
-#create dates
-oil_price$Date_Q <- quarter(oil_price$Date)
-oil_price$Date_Y <- year(oil_price$Date)
-quarterly_averages <- oil_price %>%
-  group_by(Date_Q,Date_Y) %>%
-  summarise(average_value = mean(OIL_CHF, na.rm = TRUE))
-
-quarterly_averages  <- quarterly_averages [order(quarterly_averages $Date_Y),]
-quarterly_averages$Date_q <- seq(as.Date("1986-01-01"), by = "3 months", length.out = nrow(quarterly_averages))
-
-#plot quarterly_averages and monthly oil_price
-plot(quarterly_averages$Date_q, quarterly_averages$average_value, type = "l", col = "red")
-lines(oil_price$Date, oil_price$OIL_CHF, col = "blue")
-
-#plot oil in chf and usd
-plot(oil_price$Date, oil_price$OIL_CHF, type = "l", col = "red")
-lines(oil_price$Date, oil_price$MCOILWTICO, col = "blue")
-
-#Express oi price OIL_CHF in proportion of 2017Q1 prices
-oil_price_plus <- quarterly_averages
-oil_price_plus$B17 <- (oil_price_plus$average_value / oil_price_plus$average_value[which(quarterly_averages$Date_q == "2010-10-01")] ) * 100
-#plot oil in chf and usd
-plot(oil_price_plus$Date_q, oil_price_plus$B17, type = "l", col = "red")
-lines(quarterly_averages$Date_q, quarterly_averages$average_value, col = "blue")
-
-
-#retreive heating oil in a df
-heating_oil <- data.frame(Date = data$Year, oil = data$`Heating.oil`)
+######
+# Convert to quarterly
+######
+#1. convert B10
+#create empty df
+ECM_Data_Q <- data.frame()
 #convert to qurterly
-#create dates
-heating_oil$Date_Q <- quarter(heating_oil$Date)
-heating_oil$Date_Y <- year(heating_oil$Date)
-quarterly_averages2 <- heating_oil %>%
+ECM_Data$Date_Q <- quarter(ECM_Data$Date)
+ECM_Data$Date_Y <- year(ECM_Data$Date)
+ECM_Data_Q <- ECM_Data %>%
   group_by(Date_Q,Date_Y) %>%
-  summarise(average_value = mean(oil, na.rm = TRUE))
+  summarise(Q_OIL_CHF = mean(B10, na.rm = TRUE))
+#order by date
+ECM_Data_Q  <- ECM_Data_Q [order(ECM_Data_Q$Date_Y),]
 
-quarterly_averages2  <- quarterly_averages2 [order(quarterly_averages2$Date_Y),]
-quarterly_averages2$Date_q <- seq(as.Date("1983-01-01"), by = "3 months", length.out = nrow(quarterly_averages2))
+#2. convert oil
+#create empty df
+ECM_Data_Q2 <- data.frame()
+#convert to qurterly
+ECM_Data$Date_Q <- quarter(ECM_Data$Date)
+ECM_Data$Date_Y <- year(ECM_Data$Date)
+ECM_Data_Q2 <- ECM_Data %>%
+  group_by(Date_Q,Date_Y) %>%
+  summarise(Q_OIL_CPI = mean(oil, na.rm = TRUE))
+#order by date
+ECM_Data_Q2  <- ECM_Data_Q2 [order(ECM_Data_Q2$Date_Y),]
 
-#plot quarterly_averages and monthly oil_price
-plot(quarterly_averages2$Date_q, quarterly_averages2$average_value, type = "l", col = "red")
-lines(heating_oil$Date, heating_oil$oil, col = "blue")
+#  happend the two data frames by columns
+ECM_Data_Q <- cbind(ECM_Data_Q, ECM_Data_Q2)
 
-#plot oil in chf and heating oil oil
-plot(oil_price_plus$Date_q, oil_price_plus$B17, type = "l", col = "red")
-lines(quarterly_averages2$Date_q, quarterly_averages2$average_value, col = "blue")
+#remove ECM_Data_Q2, quarterl_averages2
+rm(ECM_Data_Q2, quarterly_averages)
 
+######
+# 3 calculate the growth rate of ECM_Data_Q$Q_OIL_CHF and ECM_Data_Q$Q_OIL_CPI
+######
+#calculate the growth rate of ECM_Data_Q$Q_OIL_CHF and ECM_Data_Q$Q_OIL_CPI
+ECM_Data_Q$Q_OIL_CHF_R <- (ECM_Data_Q$Q_OIL_CHF - lag(ECM_Data_Q$Q_OIL_CHF,1))/lag(ECM_Data_Q$Q_OIL_CHF,1)
+ECM_Data_Q$Q_OIL_CPI_R <- (ECM_Data_Q$Q_OIL_CPI - lag(ECM_Data_Q$Q_OIL_CPI,1))/lag(ECM_Data_Q$Q_OIL_CPI,1)
+#remove the first line of ECM_Data_Q
+ECM_Data_Q <- ECM_Data_Q[-1,]
 
-#remove date below 1986-01-01
-quarterly_averages2 <- quarterly_averages2[which(quarterly_averages2$Date_q >= "1986-02-01"),]
-#remove date below 1986-01-01
-quarterly_averages2 <- quarterly_averages2[which(quarterly_averages2$Date_q <= "2021-08-01"),]
-#remove date above 2021-08-01
-oil_price_plus <- oil_price_plus[which(oil_price_plus$Date_q <= "2021-08-01"),]
+#plot the growth rate of ECM_Data_Q$Q_OIL_CHF and ECM_Data_Q$Q_OIL_CPI
+plot(ECM_Data_Q$Q_OIL_CHF_R, type = "l", col = "red")
+lines(ECM_Data_Q$Q_OIL_CPI_R, type = "l", col = "blue")
 
+######
+# 4 perfom checks before ECM
+######
+#check for stationarity of the data
+adf.test(ECM_Data_Q$Q_OIL_CHF_R)
+adf.test(ECM_Data_Q$Q_OIL_CPI_R)
+#check for cointegration between the two time series using urca package
+test <- ca.jo(ECM_Data_Q[,c(7,8)], type = "trace", ecdet = "const", K = 2, spec = "transitory")
 
-## Some checks ##
-# check the lag lenght needed
-#put togheter the two time series
-dataset <- cbind(quarterly_averages2,oil_price_plus['rate'])
-var_select_result <- VARselect(dataset, lag.max = 10, type = "const")
-var_select_result$criteria
-# check for cointegration between the two time series using urca package
-test <- ca.jo(dataset, type = "trace", ecdet = "const", K = 2, spec = "transitory")
-#fit the model ECM
-xeq <- xtr <- oil_price_plus['rate']
-fit <- ecm(heating_oil$oil,xeq,xtr,includeIntercept = TRUE)
+######
+# 4 perfom the ecm
+######
+#fit the model ECM using CM_Data_Q$Q_OIL_CHF_R and a random walk and pass a data.frame
+# Convertir xeq et xtr en data.frames
+xeq <- data.frame(Q_OIL_CHF_R = ECM_Data_Q$Q_OIL_CHF_R)
+xtr <- data.frame(Q_OIL_CHF_R = ECM_Data_Q$Q_OIL_CHF_R)
+
+# Ajuster le modèle ECM
+fit <- ecm(ECM_Data_Q$Q_OIL_CPI_R, xeq, xtr, includeIntercept = TRUE)
+
 #plot the model
 plot(fit)
 #summary of the model
 summary(fit)
-#calculate the inflation rate of oil_price
-# remove the first line of oil_price
-oil_price_plus <- quarterly_averages[-1,]
-# remove the last line of oil_price
-oil_price_1 <- quarterly_averages[-nrow(quarterly_averages),]
-# calculate the inflation rate of oil_price
-oil_price_plus$rate <- (oil_price_plus$average_value - oil_price_1$average_value)/oil_price_1$average_value
+
+######
+# 5 forecast the ecm and do a spaghetti plot
+######
+#forecast the ecm
+forecast(fit, h = 4)
+#plot the forecast
+plot(forecast(fit, h = 4))
+#spaghetti plot
+plot(forecast(fit, h = 4), include = 100)
