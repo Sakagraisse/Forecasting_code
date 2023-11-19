@@ -182,22 +182,47 @@ library(lubridate)
 # 1 Crude oil price
 ######
 #import MCOILWTICO.csv
-oil_price <- read.csv("MCOILWTICO.csv", header = TRUE, sep = ",")
+ECM_Data <- read.csv("MCOILWTICO.csv", header = TRUE, sep = ",")
 #convert oil_price$Date to R format from YYYY.MM.DD to monthly format
-oil_price$Date <- as.Date(oil_price$DATE, format = "%Y-%m-%d")
+ECM_Data$Date <- as.Date(ECM_Data$DATE, format = "%Y-%m-%d")
+#remove DATE and order columns with date first
+ECM_Data <- ECM_Data[,c(3,2)]
 #import usdchf.csv AFTER line 16
 exchange_rate <- read.csv("EXSZUS.csv", header = TRUE, sep = ",")
 exchange_rate$USD_to_CHF <- 1 / exchange_rate$EXSZUS
-exchange_rate$Date <- as.Date(exchange_rate$DATE, format = "%Y-%m-%d")
-exchange_rate <-  subset(exchange_rate, Date >= "1986-01-01")
-exchange_rate <-  subset(exchange_rate, Date <= "2023-09-01")
-oil_price$USD_to_CHF <- exchange_rate$USD_to_CHF
-oil_price$Date_CHECK <- exchange_rate$Date
-# check if dates are the same
-oil_price$Date_CHECK == oil_price$Date
+exchange_rate$Date_c <- as.Date(exchange_rate$DATE, format = "%Y-%m-%d")
+#import USD_to_CHF.csv and Date_c to ECM data by subseting the dates by the earliest and latest date of the ECM_data
+exchange_rate <-  subset(exchange_rate, Date_c >= "1986-01-01")
+exchange_rate <-  subset(exchange_rate, Date_c <= "2023-09-01")
+#merge oil_price and exchange_rate
+ECM_Data <- merge(ECM_Data, exchange_rate, by.x = "Date", by.y = "Date_c", all.x = TRUE)
+#if ECM_Data$Date == ECM_Data$DATE
+ECM_Data$Date == ECM_Data$DATE
+#remove exchange_rate
 rm(exchange_rate)
+#remove DATE and EXSZUS from ECM_Data
+ECM_Data <- ECM_Data[,c(1,2,5)]
 # convert oil_price$MCOILWTICO to swiss francs
-oil_price$OIL_CHF <- oil_price$MCOILWTICO * oil_price$USD_to_CHF
+ECM_Data$OIL_CHF <- ECM_Data$MCOILWTICO * ECM_Data$USD_to_CHF
+# convert OIL_CHF in proportion of 2010-12-01 prices
+ECM_Data$B10 <- (ECM_Data$OIL_CHF / ECM_Data$OIL_CHF[which(ECM_Data$Date == "2010-12-01")] ) * 100
+
+######
+# 2 Heating oil price
+######
+
+#add heating oil price to ECM_Data from  data$`Heating.oil`
+heating_oil <- data.frame(Date = data$Year, oil = data$`Heating.oil`)
+#merge heating_oil and ECM_Data
+ECM_Data <- merge(ECM_Data, heating_oil, by.x = "Date", by.y = "Date", all.x = TRUE)
+#remove heating_oil
+rm(heating_oil)
+
+
+
+
+
+
 #convert to quarterly
 #create dates
 oil_price$Date_Q <- quarter(oil_price$Date)
