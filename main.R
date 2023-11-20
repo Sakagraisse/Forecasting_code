@@ -280,10 +280,33 @@ test <- ca.jo(ECM_Data_Q[,c(7,8)], type = "trace", ecdet = "const", K = 2, spec 
 ######
 # 4 perfom the ecm
 ######
+
+# generate RW
+# Set the seed for reproducibility
+set.seed(123)
+
+# Number of periods
+n_periods <- length(ECM_Data_Q$Q_OIL_CHF_R)
+
+# Generate random error terms (assuming they follow a normal distribution)
+# The standard deviation can be adjusted to reflect the volatility
+error_terms <- rnorm(n_periods, mean = 0, sd = 1)
+
+# Initialize the series, starting with an initial price (e.g., 100)
+second <- rep(0, n_periods)
+
+# Generate the random walk (without a drift)
+for(i in 2:n_periods){
+    second[i] <- second[i-1] + error_terms[i]
+}
+
+# Plot the series
+plot(second, type = "l", main = "Simulated - Random Walk", xlab = "Time", ylab = "Price")
+
 #fit the model ECM using CM_Data_Q$Q_OIL_CHF_R and a random walk and pass a data.frame
 # Convertir xeq et xtr en data.frames
 xeq <- data.frame(Q_OIL_CHF_R = ECM_Data_Q$Q_OIL_CHF_R)
-xtr <- data.frame(Q_OIL_CHF_R = ECM_Data_Q$Q_OIL_CHF_R)
+xtr <- data.frame(second)
 
 # Ajuster le modèle ECM
 fit <- ecm(ECM_Data_Q$Q_OIL_CPI_R, xeq, xtr, includeIntercept = TRUE)
