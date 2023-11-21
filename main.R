@@ -172,10 +172,10 @@ ggplot(all_data, aes(x = Time, y = Rent, color = Type)) +
 
 
 ##Try ecm using ecm package ##
-install.packages("dplyr")
-install.packages("lubridate")
-install.packages("urca")
-install.packages("ecm")
+if(!require(dplyr)) install.packages("dplyr")
+if(!require(lubridate)) install.packages("lubridate")
+if(!require(urca)) install.packages("urca")
+if(!require(ecm)) install.packages("ecm")
 library(ecm)
 library(urca)
 library(dplyr)
@@ -273,9 +273,16 @@ lines(ECM_Data_Q$Q_OIL_CPI_R, type = "l", col = "blue")
 ######
 #check for stationarity of the data
 adf.test(ECM_Data_Q$Q_OIL_CHF_R)
+#non stationnarity satisfied
+
+
 adf.test(ECM_Data_Q$Q_OIL_CPI_R)
+#non stationnarity satisfied
+
 #check for cointegration between the two time series using urca package
 test <- ca.jo(ECM_Data_Q[,c(7,8)], type = "trace", ecdet = "const", K = 2, spec = "transitory")
+#display the results
+summary(test)
 
 ######
 # 4 perfom the ecm
@@ -325,3 +332,6 @@ forecast(fit, h = 4)
 plot(forecast(fit, h = 4))
 #spaghetti plot
 plot(forecast(fit, h = 4), include = 100)
+
+### how to choose the random walk standard deviation
+### how to choose the lag of the ecm
