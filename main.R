@@ -222,6 +222,173 @@ ECM_Data <- merge(ECM_Data, heating_oil, by.x = "Date", by.y = "Date", all.x = T
 #remove heating_oil
 rm(heating_oil)
 
+## plot B17 and oil
+plot(ECM_Data$B10, type = "l", col = "red")
+lines(ECM_Data$oil, type = "l", col = "blue")
+
+#plot oil
+plot(ECM_Data$oil, type = "l", col = "blue")
+######
+# 4 perfom checks before ECM
+######
+#check for stationarity of the data
+adf.test(ECM_Data$oil)
+#non stationnarity satisfied
+
+adf.test(ECM_Data$B10)
+#non stationnarity satisfied
+
+#check for cointegration between the two time series using urca package
+test <- ca.jo(ECM_Data[,c(5,6)], type = "trace", ecdet = "const", K = 2, spec = "transitory")
+#display the results
+summary(test)
+
+
+######
+# 4 perfom the ecm
+######
+
+# generate RW
+# Set the seed for reproducibility
+set.seed(123)
+
+# Number of periods
+n_periods <- length(ECM_Data$oil)
+
+# Generate random error terms (assuming they follow a normal distribution)
+# The standard deviation can be adjusted to reflect the volatility
+error_terms <- rnorm(n_periods, mean = 0, sd = 1)
+
+# Initialize the series, starting with an initial price (e.g., 100)
+second <- rep(0, n_periods)
+
+# Generate the random walk (without a drift)
+for(i in 2:n_periods){
+    second[i] <- second[i-1] + error_terms[i]
+}
+
+# Plot the series
+plot(second, type = "l", main = "Simulated - Random Walk", xlab = "Time", ylab = "Price")
+
+#fit the model ECM using CM_Data_Q$Q_OIL_CHF_R and a random walk and pass a data.frame
+# Convertir xeq et xtr en data.frames
+xeq <- data.frame(ECM_Data$B10)
+xtr <- data.frame(second)
+
+# Ajuster le modèle ECM
+fit <- ecm(ECM_Data$oil, xeq, xtr, linearFitter='lm')
+
+#plot the model
+plot(fit)
+#summary of the model
+summary(fit)
+
+L
+lm1 <- lm(ECM_Data$oil~ECM_Data$B10) #Create the linear regression
+summary(lm1)
+plot(lm1)
+
+#create a lag ofe one for OIL and B10
+ECM_Data$B10_lag1 <- lag(ECM_Data$B10,1)
+ECM_Data$oil_lag1 <- lag(ECM_Data$oil,1)
+#create a delta of OIL and B10
+ECM_Data$B10_delta <- (ECM_Data$B10 - ECM_Data$B10_lag1)
+ECM_Data$oil_delta <- (ECM_Data$oil - ECM_Data$oil_lag1)
+#create long term correction
+ECM_Data$long_term_correction <- ECM_Data$oil_lag1 - lm1$coefficients[1] - lm1$coefficients[2] * ECM_Data$B10_lag1
+
+lm2 <- lm(ECM_Data$oil_delta~ECM_Data$B10_delta + ECM_Data$long_term_correction ) #Create the linear regression
+plot(lm2$fitted.values)
+
+fore <- forecast(lm2, h=36)
+
+
+######
+# 5 forecast the ecm and do a spaghetti plot
+######
+
+
+# forecast the Data_ECM$B10 for 36 periodsusing arima
+# Fit an ARIMA model to the historical data
+fit2 <- auto.arima(ECM_Data$B10, seasonal=FALSE, stepwise=TRUE, approximation=FALSE)
+checkresiduals (fit2)
+# Use the fitted ARIMA model to forecast future B10
+future_B10_forecast <- forecast(fit2, h=36)
+# The forecast object contains point forecasts, lower and upper confidence intervals
+print(future_B10_forecast)
+#extract the point forecasts of the future B10 as a dataframe
+future_B10_forecast_values <- future_B10_forecast$mean
+#forecast oil using the same protocole
+# Fit an ARIMA model to the historical data
+fit3 <- auto.arima(ECM_Data$oil, seasonal=FALSE, stepwise=TRUE, approximation=FALSE)
+checkresiduals (fit3)
+# Use the fitted ARIMA model to forecast future oil
+future_oil_forecast <- forecast(fit3, h=36)
+# The forecast object contains point forecasts, lower and upper confidence intervals
+print(future_oil_forecast)
+#extract the point forecasts of the future oil as a dataframe
+future_oil_forecast_values <- future_oil_forecast$mean
+#merge the two dataframes
+future_B10_forecast_values <- cbind(future_B10_forecast_values, future_oil_forecast_values)
+#rename the columns
+colnames(future_B10_forecast_values) <- c("B10", "oil")
+future_B10_forecast_values <- as.data.frame(future_B10_forecast_values)
+# merge second up to the length of future_B10_forecast_values which is 36
+future_B10_forecast_values <- cbind(future_B10_forecast_values, second[1:36])
+colnames(future_B10_forecast_values) <- c("B10", "oil", "second")
+
+future_B10_forecast_values$oil
+
+#create alag1 of b10
+future_B10_forecast_values$B10_lag1 <- lag(future_B10_forecast_values$B10,1)
+#create alag1 of oil
+future_B10_forecast_values$oil_lag1 <- lag(future_B10_forecast_values$oil,1)
+#create a delta of b10
+future_B10_forecast_values$B10_delta <- (future_B10_forecast_values$B10 - future_B10_forecast_values$B10_lag1)/future_B10_forecast_values$B10_lag1
+
+#add it to future_B10_forecast_values B10_lag1 oil_lag1 B10_delta
+#future_B10_forecast_values <- cbind(future_B10_forecast_values, future_B10_forecast_values$B10_lag1, future_B10_forecast_values$oil_lag1, future_B10_forecast_values$B10_delta)
+#rename the columns
+colnames(future_B10_forecast_values) <- c("B10", "oil", "second", "ECM_Data.B10Lag1", "yLag1", "deltaECM_Data.B10")
+
+
+
+future_B10_forecast_values
+#forecast the ecm
+test$model1Pred <- ecmpredict(fit,future_B10_forecast_values,future_B10_forecast_values$oil[1])
+plot(test$fitted)
+
+ plot(forecast(fit))
+
+test <- forecast(fit,as.data.frame(future_B10_forecast_values),h=36)
+
+
+
+#forecast the ecm
+test <- ecmpredict(fit,ECM_Data_Q$Q_OIL_CPI_R, h = 4)
+#plot the forecast
+plot(test)
+#spaghetti plot
+plot(forecast(fit, h = 4), include = 100)
+
+### how to choose the random walk standard deviation
+### how to choose the lag of the ecm
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ######
 # Convert to quarterly
 ######
@@ -327,11 +494,12 @@ summary(fit)
 # 5 forecast the ecm and do a spaghetti plot
 ######
 #forecast the ecm
-forecast(fit, h = 4)
+test <- ecmpredict(fit,ECM_Data_Q$Q_OIL_CPI_R, h = 4)
 #plot the forecast
-plot(forecast(fit, h = 4))
+plot(test)
 #spaghetti plot
 plot(forecast(fit, h = 4), include = 100)
 
 ### how to choose the random walk standard deviation
 ### how to choose the lag of the ecm
+### un lag pour lecm ?
