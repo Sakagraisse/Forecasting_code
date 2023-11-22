@@ -283,7 +283,7 @@ plot(fit)
 #summary of the model
 summary(fit)
 
-L
+
 lm1 <- lm(ECM_Data$oil~ECM_Data$B10) #Create the linear regression
 summary(lm1)
 plot(lm1)
@@ -300,7 +300,7 @@ ECM_Data$long_term_correction <- ECM_Data$oil_lag1 - lm1$coefficients[1] - lm1$c
 lm2 <- lm(ECM_Data$oil_delta~ECM_Data$B10_delta + ECM_Data$long_term_correction ) #Create the linear regression
 plot(lm2$fitted.values)
 
-fore <- forecast(lm2, h=36)
+fore <- forecast(lm1, h=37)
 
 
 ######
