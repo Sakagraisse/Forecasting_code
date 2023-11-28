@@ -1,12 +1,31 @@
 #clean space
 rm(list = ls())
 # ##import data in excell format from the first table only
-install.packages("readxl")
-install.packages("reshape2")
-
+if(!require(readxl)) install.packages("readxl")
+if(!require(reshape2)) install.packages("reshape2")
+if(!require(dplyr)) install.packages("dplyr")
+if(!require(lubridate)) install.packages("lubridate")
+if(!require(urca)) install.packages("urca")
+if(!require(ecm)) install.packages("ecm")
+if(!require(forecast)) install.packages("forecast")
+if(!require(tseries)) install.packages("tseries")
+if(!require(lubridate)) install.packages("lubridate")
+if(!require(zoo)) install.packages("zoo")
+if(!require(tempdisagg)) install.packages("tempdisagg")
+if(!require(openxlsx)) install.packages("openxlsx")
 library(readxl)
+library(reshape2)
+library(ecm)
+library(urca)
+library(dplyr)
+library(lubridate)
+library(zoo)
+library(forecast)
+library(tseries)
+library(lubridate)
+library(tempdisagg)
+library(openxlsx)
 
-rm(list = ls())
 data <- read_excel("CPI_2020.xlsx", sheet = 1, col_names = TRUE, skip = 1)
 #check which type is data
 class(data)
@@ -26,14 +45,8 @@ colnames(data) <- data[1,]
 class(data)
 #exctracte column 2 and name it weight
 weight <- data[,1:2]
-#drop the first line
-weight <- weight[-1,]
-# transpose weight
-weight <- t(weight)
-#make the first line the name of the columns
-colnames(weight) <- weight[1,]
 #remove the first line
-weight <- weight[-1,]
+weight <- weight[-c(1:3),]
 #remove first line and secdond column from data
 data <- data[,-2]
 #change the first index of the table to "Year"
@@ -56,7 +69,10 @@ data$Year <- as.Date(as.numeric(data$Year), origin = "1899-12-30")
 
 #####Rent data quarterly-----
 #Mortgage rate quarterly
+
+#import excel file with mortgage rate
 data2 <- read_excel("mortgage_rate_c.xlsx", sheet = 1, col_names = TRUE)
+
 #rename first column "mortgage rate"
 colnames(data2)[1] <- "mortgage.rate"
 #rename second column "date"
@@ -71,40 +87,90 @@ data2$dates <- seq(as.Date("2008-09-01"), by = "3 months", length.out = nrow(dat
 data2 <- data2[,-2]
 #order date
 data2 <- data2[order(data2$dates),]
+#keep only Rent and Year variables from data3
+data3 <- data[,c(1,156)]
+#Convert monthly Rent data3 to quarterly
+data3 <- data3 %>%
+  mutate(date = as.Date(Year),  # Ensure the 'Year' column is in Date format
+         year = year(date),
+         quarter = quarter(date)) %>%
+  group_by(year, quarter) %>%
+  # Remove rows with NA in 'Rent' before summarizing
+  filter(!is.na(Rent)) %>%
+  summarize(last_quarter_rent = last(Rent))  # Get the last Rent value of each quarter
 
-#Keep only Rent and Year variables from data from 309:489
-data3 <- data[309:489,]
-#keep only Rent and Year variables from data
-data3 <- data3[,c(1,156)]
-#convert monthly rent data to quarterly by taking the value of the last month of the quarter, 4 observatios per year
-data3 <- data3[seq(1, nrow(data3), 3), ]
+data3 <- data3 %>%
+  mutate(Year = paste(year,
+                      case_when(
+                        quarter == 1 ~ "03.01",
+                        quarter == 2 ~ "06.01",
+                        quarter == 3 ~ "09.01",
+                        quarter == 4 ~ "12.01"
+                      ),
+                      sep="."
+  )
+  )
+#Keep only the variables Year and quarterly_rent
+data3 <- data3[,c(3,4)]
+#drop the first 102
+data3 <- data3[-c(1:102),]
+#rename quareterly_rent to Rent
+colnames(data3)[1] <- "Rent"
+
 #Merge data3 and data 2
-data3$mortagage.rate <- data2$mortgage.rate
-#Quarterly Rent data
-data4 <- data[,c(1,156)]
-#convert monthly Rent data to quarterly from data4 by taking the value of the last month of each the quarter, starting from march
-data4 <- data4[seq(3, nrow(data4), 3), ]
+data3$mortgage.rate <- data2$mortgage.rate
+
+#create the "good monthly" times series using show_lin
+# Exemple de séries trimestrielles
+rent_quarterly <- ts(data3$Rent, start=c(2008,3), frequency=4)
+mortgage_rate_quarterly <- ts(data3$mortgage.rate, start=c(2008,3), frequency=4)
+
+#create a dataset with housing.and.energy from data but only the last 309 lines
+
+data4 <- data$Housing.and.energy
+#only keep the last 309 lines of data4
+data4 <- data4[-c(1:309)]
+
+# Exemple de série indicatrice mensuelle
+indicator_monthly <- ts(data4, start=c(2008,6), frequency=12)
+
+rent_monthly <- td(rent_quarterly ~ 1, to = "monthly", method = "denton-cholette")
+mortgage_rate_monthly <- td(mortgage_rate_quarterly ~ 1, to = "monthly", method = "denton-cholette")
+
+plot(rent_monthly)
+plot(mortgage_rate_monthly)
+
+
+rent_monthly_numeric <- as.numeric(rent_monthly[[1]])
+mortgage_rate_monthly_numeric <- as.numeric(mortgage_rate_monthly[[1]])
+rent_monthly_inflation <- log(rent_monthly_numeric/lag(rent_monthly_numeric, 12))
+
 
 ###### Rent forecast -----
-install.packages("forecast")
-install.packages("tseries")
-library(forecast)
-library(tseries)
-
-#check for stationarity of the data
-adf.test(data4$Rent)
-
 #ARIMA model for rent  with mortgage rate as exogenous variable
-fit <- auto.arima(data3$Rent, xreg = data3$mortagage.rate, seasonal=FALSE, approximation=FALSE, trace=TRUE)
+# Dclate Rent as a quaretly time series
+Rent <- ts(rent_monthly_inflation,start=c(2008,6),frequency=12)
+mortgage.rate <- ts(mortgage_rate_monthly_numeric,start=c(2008,6),frequency=12)
+
+
+
+#adf.test(Rent)
+#rent.diff <- diff(Rent)
+#adf.test(rent.diff)
+
+#adf.test(mortgage.rate)
+#mortgage.rate.diff <- diff(mortgage.rate)
+#adf.test(mortgage.rate.diff)
+
+fit <- auto.arima(Rent, xreg = mortgage.rate, seasonal=FALSE, approximation=FALSE, trace=TRUE)
 summary(fit)
 checkresiduals(fit)
 
 ## Forecast of the mortgage rate
-#check for stationarity of the data
-adf.test(data3$mortagage.rate)
-
 # Fit an ARMA model to the historical mortgage rate data
-fit2 <- auto.arima(data3$mortagage.rate, seasonal=FALSE, stepwise=TRUE, approximation=FALSE)
+#first difference for mortgage rate
+
+fit2 <- auto.arima(mortgage.rate, seasonal=FALSE, stepwise=TRUE, approximation=FALSE)
 checkresiduals (fit2)
 # Use the fitted ARMA model to forecast future mortgage rates
 future_mortgage_rate_forecast <- forecast(fit2, h=12)
@@ -120,66 +186,39 @@ rent_forecast <- forecast(fit, xreg=future_mortgage_rate_values, h=12)
 plot(rent_forecast)
 # Print the forecasted rent values
 print(rent_forecast)
+#transform point forecast values to inflation rate
 
-#Performance evaluation
-library(ggplot2)
-#out-of-sample evaluation
-# Plot the forecasted rent values
-plot(rent_forecast)
 
-# Set the number of periods to forecast
-n <- 12
-# Split the data into training and test sets
-train_end <- length(data4$Rent) - n
-train_set <- data4$Rent[1:train_end]
-test_set <- data4$Rent[(train_end + 1):length(data4$Rent)]
+#Forecast of Total----------
+#build a new column = data$Total - data$rent - oil
+data5 <- data[,c(1,2,156,188)]
+#keep after line 306
+data5 <- data5[-c(1:305),]
 
-# Fit the ARIMA model on the training set
-fit <- auto.arima(train_set)
+Total <- ts(data5$Total,start=c(2008,6),frequency=12)
+Heating.oil <- ts(data5$Heating.oil,start=c(2008,6),frequency=12)
 
-# Forecast n periods ahead
-rent_forecast <- forecast(fit, h = n)
+#create time series equatl to total - rent - oil
+Total_wor <- Total - 0.19325*Rent - 0.00603*Heating.oil
+#drop NA
+Total_wor <- na.omit(Total_wor)
+Total_wor_numeric <- as.numeric(Total_wor)
+Total_wor = log(Total_wor_numeric/lag(Total_wor_numeric,12))
+Total_wor <- na.omit(Total_wor)
 
-# The forecast object contains point forecasts, upper and lower confidence intervals
-# Extract the point forecasts
-forecast_values <- rent_forecast$mean
 
-# Compare the forecast to the actual values in the test set
-comparison <- data.frame(Forecast = forecast_values, Actual = test_set)
-
-# Calculate accuracy measures
-accuracy_measures <- accuracy(forecast_values, test_set)
-
-# Print the comparison and accuracy measures
-print(comparison)
-print(accuracy_measures)
-
-# This assumes that your test_set is already a time series object with proper time attributes
-forecast_series <- ts(forecast_values, start=start(test_set), frequency=frequency(test_set))
-
-# Create a combined data frame for plotting
-actual_df <- data.frame(Time = time(test_set), Rent = as.numeric(test_set), Type = "Actual")
-forecast_df <- data.frame(Time = time(forecast_series), Rent = as.numeric(forecast_series), Type = "Forecasted")
-all_data <- rbind(actual_df, forecast_df)
-
-# Plot using ggplot2
-ggplot(all_data, aes(x = Time, y = Rent, color = Type)) +
-  geom_line() +
-  labs(title = "Actual vs Forecasted Rent", x = "Time", y = "Rent") +
-  scale_color_manual(values = c("Actual" = "blue", "Forecasted" = "red")) +
-  theme_minimal()
+fit3 <- auto.arima(Total_wor, seasonal=FALSE, approximation=FALSE, trace=TRUE)
+summary(fit3)
+checkresiduals(fit3)
+total_forecast_monthly <- forecast(fit3,  h=36)
+# Plot the forecast of rent
+plot(total_forecast_monthly$residuals)
+# Print the forecasted rent values
+print(total_forecast_monthly)
+ plot(total_forecast_monthly$residuals)
 
 
 
-##Try ecm using ecm package ##
-if(!require(dplyr)) install.packages("dplyr")
-if(!require(lubridate)) install.packages("lubridate")
-if(!require(urca)) install.packages("urca")
-if(!require(ecm)) install.packages("ecm")
-library(ecm)
-library(urca)
-library(dplyr)
-library(lubridate)
 ## import the data ##
 
 ######
@@ -228,6 +267,7 @@ lines(ECM_Data$oil, type = "l", col = "blue")
 
 #plot oil
 plot(ECM_Data$oil, type = "l", col = "blue")
+
 ######
 # 4 perfom checks before ECM
 ######
@@ -245,48 +285,12 @@ summary(test)
 
 
 ######
-# 4 perfom the ecm
+# 5 perfom the ecm
 ######
-
-# generate RW
-# Set the seed for reproducibility
-set.seed(123)
-
-# Number of periods
-n_periods <- length(ECM_Data$oil)
-
-# Generate random error terms (assuming they follow a normal distribution)
-# The standard deviation can be adjusted to reflect the volatility
-error_terms <- rnorm(n_periods, mean = 0, sd = 1)
-
-# Initialize the series, starting with an initial price (e.g., 100)
-second <- rep(0, n_periods)
-
-# Generate the random walk (without a drift)
-for(i in 2:n_periods){
-    second[i] <- second[i-1] + error_terms[i]
-}
-
-# Plot the series
-plot(second, type = "l", main = "Simulated - Random Walk", xlab = "Time", ylab = "Price")
-
-#fit the model ECM using CM_Data_Q$Q_OIL_CHF_R and a random walk and pass a data.frame
-# Convertir xeq et xtr en data.frames
-xeq <- data.frame(ECM_Data$B10)
-xtr <- data.frame(second)
-
-# Ajuster le modèle ECM
-fit <- ecm(ECM_Data$oil, xeq, xtr, linearFitter='lm')
-
-#plot the model
-plot(fit)
-#summary of the model
-summary(fit)
-
 
 lm1 <- lm(ECM_Data$oil~ECM_Data$B10) #Create the linear regression
 summary(lm1)
-plot(lm1)
+plot(lm1$residuals)
 
 #create a lag ofe one for OIL and B10
 ECM_Data$B10_lag1 <- lag(ECM_Data$B10,1)
@@ -300,206 +304,45 @@ ECM_Data$long_term_correction <- ECM_Data$oil_lag1 - lm1$coefficients[1] - lm1$c
 lm2 <- lm(ECM_Data$oil_delta~ECM_Data$B10_delta + ECM_Data$long_term_correction ) #Create the linear regression
 plot(lm2$fitted.values)
 
-fore <- forecast(lm1, h=37)
+#remove column 2 to 4 and store it in a new dataframe keep column 1
+data_forecast <- ECM_Data[,c(1,5:11)]
+ll <- length(data_forecast$B10)
+new_rows <- data.frame(matrix(NA, nrow = 36, ncol = ncol(data_forecast)))
+colnames(new_rows) <- colnames(data_forecast)
+data_forecast <- rbind(data_forecast, new_rows)
+data_forecast$B10[ll+1:36] <- rep(tail(ECM_Data$B10, 1), 36)
+data_forecast$B10_lag1[ll+1:36] <- rep(tail(ECM_Data$B10, 1), 36)
+data_forecast$B10_delta[ll+1:36] <- rep(0, 36)
+#continue the date column
+data_forecast$Date[ll+1:36] <- seq(as.Date("2023-10-01"), by = "1 months", length.out = 36)
+
+# Function to forecast future values
+forecast_ECM <- function(data_to_use,starting_row, steps_ahead) {
+  temp <- data_to_use
+  # Initialize the forecast dataframe with the last row of ECM_Data
+  l_base <- starting_row
+  # Iterate for the number of steps you want to forecast
+  for(i in 2:steps_ahead-1) {
+    # Create oil  lag 1
+    temp$oil_lag1[l_base + i] <- temp$oil[l_base + i - 1]
+    # Calculate long term correction
+    temp$long_term_correction[l_base + i] <- temp$oil_lag1[l_base + i] - lm1$coefficients[1] - lm1$coefficients[2] * temp$B10_lag1[l_base + i]
+
+    # Calculate OIL delta
+    temp$oil_delta[l_base + i] <- lm2$coefficients[1] + lm2$coefficients[3] * temp$long_term_correction[l_base + i]
+
+    # Update the value of oil
+    temp$oil[l_base + i] <- temp$oil_lag1[l_base + i] + temp$oil_delta[l_base + i]
 
 
-######
-# 5 forecast the ecm and do a spaghetti plot
-######
-
-
-# forecast the Data_ECM$B10 for 36 periodsusing arima
-# Fit an ARIMA model to the historical data
-fit2 <- auto.arima(ECM_Data$B10, seasonal=FALSE, stepwise=TRUE, approximation=FALSE)
-checkresiduals (fit2)
-# Use the fitted ARIMA model to forecast future B10
-future_B10_forecast <- forecast(fit2, h=36)
-# The forecast object contains point forecasts, lower and upper confidence intervals
-print(future_B10_forecast)
-#extract the point forecasts of the future B10 as a dataframe
-future_B10_forecast_values <- future_B10_forecast$mean
-#forecast oil using the same protocole
-# Fit an ARIMA model to the historical data
-fit3 <- auto.arima(ECM_Data$oil, seasonal=FALSE, stepwise=TRUE, approximation=FALSE)
-checkresiduals (fit3)
-# Use the fitted ARIMA model to forecast future oil
-future_oil_forecast <- forecast(fit3, h=36)
-# The forecast object contains point forecasts, lower and upper confidence intervals
-print(future_oil_forecast)
-#extract the point forecasts of the future oil as a dataframe
-future_oil_forecast_values <- future_oil_forecast$mean
-#merge the two dataframes
-future_B10_forecast_values <- cbind(future_B10_forecast_values, future_oil_forecast_values)
-#rename the columns
-colnames(future_B10_forecast_values) <- c("B10", "oil")
-future_B10_forecast_values <- as.data.frame(future_B10_forecast_values)
-# merge second up to the length of future_B10_forecast_values which is 36
-future_B10_forecast_values <- cbind(future_B10_forecast_values, second[1:36])
-colnames(future_B10_forecast_values) <- c("B10", "oil", "second")
-
-future_B10_forecast_values$oil
-
-#create alag1 of b10
-future_B10_forecast_values$B10_lag1 <- lag(future_B10_forecast_values$B10,1)
-#create alag1 of oil
-future_B10_forecast_values$oil_lag1 <- lag(future_B10_forecast_values$oil,1)
-#create a delta of b10
-future_B10_forecast_values$B10_delta <- (future_B10_forecast_values$B10 - future_B10_forecast_values$B10_lag1)/future_B10_forecast_values$B10_lag1
-
-#add it to future_B10_forecast_values B10_lag1 oil_lag1 B10_delta
-#future_B10_forecast_values <- cbind(future_B10_forecast_values, future_B10_forecast_values$B10_lag1, future_B10_forecast_values$oil_lag1, future_B10_forecast_values$B10_delta)
-#rename the columns
-colnames(future_B10_forecast_values) <- c("B10", "oil", "second", "ECM_Data.B10Lag1", "yLag1", "deltaECM_Data.B10")
-
-
-
-future_B10_forecast_values
-#forecast the ecm
-test$model1Pred <- ecmpredict(fit,future_B10_forecast_values,future_B10_forecast_values$oil[1])
-plot(test$fitted)
-
- plot(forecast(fit))
-
-test <- forecast(fit,as.data.frame(future_B10_forecast_values),h=36)
-
-
-
-#forecast the ecm
-test <- ecmpredict(fit,ECM_Data_Q$Q_OIL_CPI_R, h = 4)
-#plot the forecast
-plot(test)
-#spaghetti plot
-plot(forecast(fit, h = 4), include = 100)
-
-### how to choose the random walk standard deviation
-### how to choose the lag of the ecm
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-######
-# Convert to quarterly
-######
-#1. convert B10
-#create empty df
-ECM_Data_Q <- data.frame()
-#convert to qurterly
-ECM_Data$Date_Q <- quarter(ECM_Data$Date)
-ECM_Data$Date_Y <- year(ECM_Data$Date)
-ECM_Data_Q <- ECM_Data %>%
-  group_by(Date_Q,Date_Y) %>%
-  summarise(Q_OIL_CHF = mean(B10, na.rm = TRUE))
-#order by date
-ECM_Data_Q  <- ECM_Data_Q [order(ECM_Data_Q$Date_Y),]
-
-#2. convert oil
-#create empty df
-ECM_Data_Q2 <- data.frame()
-#convert to qurterly
-ECM_Data$Date_Q <- quarter(ECM_Data$Date)
-ECM_Data$Date_Y <- year(ECM_Data$Date)
-ECM_Data_Q2 <- ECM_Data %>%
-  group_by(Date_Q,Date_Y) %>%
-  summarise(Q_OIL_CPI = mean(oil, na.rm = TRUE))
-#order by date
-ECM_Data_Q2  <- ECM_Data_Q2 [order(ECM_Data_Q2$Date_Y),]
-
-#  happend the two data frames by columns
-ECM_Data_Q <- cbind(ECM_Data_Q, ECM_Data_Q2)
-
-#remove ECM_Data_Q2, quarterl_averages2
-rm(ECM_Data_Q2, quarterly_averages)
-
-######
-# 3 calculate the growth rate of ECM_Data_Q$Q_OIL_CHF and ECM_Data_Q$Q_OIL_CPI
-######
-#calculate the growth rate of ECM_Data_Q$Q_OIL_CHF and ECM_Data_Q$Q_OIL_CPI
-ECM_Data_Q$Q_OIL_CHF_R <- (ECM_Data_Q$Q_OIL_CHF - lag(ECM_Data_Q$Q_OIL_CHF,1))/lag(ECM_Data_Q$Q_OIL_CHF,1)
-ECM_Data_Q$Q_OIL_CPI_R <- (ECM_Data_Q$Q_OIL_CPI - lag(ECM_Data_Q$Q_OIL_CPI,1))/lag(ECM_Data_Q$Q_OIL_CPI,1)
-#remove the first line of ECM_Data_Q
-ECM_Data_Q <- ECM_Data_Q[-1,]
-
-#plot the growth rate of ECM_Data_Q$Q_OIL_CHF and ECM_Data_Q$Q_OIL_CPI
-plot(ECM_Data_Q$Q_OIL_CHF_R, type = "l", col = "red")
-lines(ECM_Data_Q$Q_OIL_CPI_R, type = "l", col = "blue")
-
-######
-# 4 perfom checks before ECM
-######
-#check for stationarity of the data
-adf.test(ECM_Data_Q$Q_OIL_CHF_R)
-#non stationnarity satisfied
-
-
-adf.test(ECM_Data_Q$Q_OIL_CPI_R)
-#non stationnarity satisfied
-
-#check for cointegration between the two time series using urca package
-test <- ca.jo(ECM_Data_Q[,c(7,8)], type = "trace", ecdet = "const", K = 2, spec = "transitory")
-#display the results
-summary(test)
-
-######
-# 4 perfom the ecm
-######
-
-# generate RW
-# Set the seed for reproducibility
-set.seed(123)
-
-# Number of periods
-n_periods <- length(ECM_Data_Q$Q_OIL_CHF_R)
-
-# Generate random error terms (assuming they follow a normal distribution)
-# The standard deviation can be adjusted to reflect the volatility
-error_terms <- rnorm(n_periods, mean = 0, sd = 1)
-
-# Initialize the series, starting with an initial price (e.g., 100)
-second <- rep(0, n_periods)
-
-# Generate the random walk (without a drift)
-for(i in 2:n_periods){
-    second[i] <- second[i-1] + error_terms[i]
+  }
+  return(temp)
 }
 
-# Plot the series
-plot(second, type = "l", main = "Simulated - Random Walk", xlab = "Time", ylab = "Price")
+# Example usage: Forecasting 5 steps ahead
+yay <- forecast_ECM(data_forecast,nrow(ECM_Data),36)
 
-#fit the model ECM using CM_Data_Q$Q_OIL_CHF_R and a random walk and pass a data.frame
-# Convertir xeq et xtr en data.frames
-xeq <- data.frame(Q_OIL_CHF_R = ECM_Data_Q$Q_OIL_CHF_R)
-xtr <- data.frame(second)
 
-# Ajuster le modèle ECM
-fit <- ecm(ECM_Data_Q$Q_OIL_CPI_R, xeq, xtr, includeIntercept = TRUE)
-
-#plot the model
-plot(fit)
-#summary of the model
-summary(fit)
-
-######
-# 5 forecast the ecm and do a spaghetti plot
-######
-#forecast the ecm
-test <- ecmpredict(fit,ECM_Data_Q$Q_OIL_CPI_R, h = 4)
-#plot the forecast
-plot(test)
-#spaghetti plot
-plot(forecast(fit, h = 4), include = 100)
-
-### how to choose the random walk standard deviation
-### how to choose the lag of the ecm
-### un lag pour lecm ?
+#plot oil delta from row 400
+plot(yay$oil_delta[400:nrow(yay)], type = "l", col = "red")
+lines(ECM_Data$oil_delta[400:nrow(ECM_Data)], type = "l", col = "blue")
