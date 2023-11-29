@@ -285,7 +285,7 @@ summary(test)
 
 
 ######
-# 5 perfom the ecm
+# 5 estimate the ecm
 ######
 
 lm1 <- lm(ECM_Data$oil~ECM_Data$B10) #Create the linear regression
@@ -293,8 +293,8 @@ summary(lm1)
 plot(lm1$residuals)
 
 #create a lag ofe one for OIL and B10
-ECM_Data$B10_lag1 <- lag(ECM_Data$B10,1)
-ECM_Data$oil_lag1 <- lag(ECM_Data$oil,1)
+ECM_Data$B10_lag1 <- lag(ECM_Data$B10,12)
+ECM_Data$oil_lag1 <- lag(ECM_Data$oil,12)
 #create a delta of OIL and B10
 ECM_Data$B10_delta <- (ECM_Data$B10 - ECM_Data$B10_lag1)
 ECM_Data$oil_delta <- (ECM_Data$oil - ECM_Data$oil_lag1)
@@ -304,19 +304,33 @@ ECM_Data$long_term_correction <- ECM_Data$oil_lag1 - lm1$coefficients[1] - lm1$c
 lm2 <- lm(ECM_Data$oil_delta~ECM_Data$B10_delta + ECM_Data$long_term_correction ) #Create the linear regression
 plot(lm2$fitted.values)
 
-#remove column 2 to 4 and store it in a new dataframe keep column 1
-data_forecast <- ECM_Data[,c(1,5:11)]
-ll <- length(data_forecast$B10)
-new_rows <- data.frame(matrix(NA, nrow = 36, ncol = ncol(data_forecast)))
-colnames(new_rows) <- colnames(data_forecast)
-data_forecast <- rbind(data_forecast, new_rows)
-data_forecast$B10[ll+1:36] <- rep(tail(ECM_Data$B10, 1), 36)
-data_forecast$B10_lag1[ll+1:36] <- rep(tail(ECM_Data$B10, 1), 36)
-data_forecast$B10_delta[ll+1:36] <- rep(0, 36)
-#continue the date column
-data_forecast$Date[ll+1:36] <- seq(as.Date("2023-10-01"), by = "1 months", length.out = 36)
+Box.test(lm2$residuals, lag = 1, type = "Ljung-Box")
+plot(lm2$residuals)
 
-# Function to forecast future values
+
+
+######
+# 5
+######
+
+#create function to create data_forcast from different lenghts of row ECM_Data
+create_data_forecast <- function(data_to_use, end_row, steps_ahead) {
+  data_forecast <- data_to_use[1:end_row, c(1,5:11)]
+  ll <- length(data_forecast$B10)
+  new_rows <- data.frame(matrix(NA, nrow = 36, ncol = ncol(data_forecast)))
+  colnames(new_rows) <- colnames(data_forecast)
+  data_forecast <- rbind(data_forecast, new_rows)
+  data_forecast$B10[ll+1:steps_ahead] <- rep(tail(ECM_Data$B10, 1), steps_ahead)
+  data_forecast$B10_lag1[ll+1:steps_ahead] <- rep(tail(ECM_Data$B10, 1), steps_ahead)
+  data_forecast$B10_delta[ll+1:steps_ahead] <- rep(0, steps_ahead)
+  data_forecast$B10_lag1[ll+1:12] <- tail(ECM_Data$B10, 12)
+  #continue the date column
+  data_forecast$Date[ll+1:steps_ahead] <- seq(as.Date("2023-10-01"), by = "1 months", length.out = steps_ahead)
+  return(data_forecast)
+}
+
+
+  # Function to forecast future values
 forecast_ECM <- function(data_to_use,starting_row, steps_ahead) {
   temp <- data_to_use
   # Initialize the forecast dataframe with the last row of ECM_Data
@@ -324,7 +338,7 @@ forecast_ECM <- function(data_to_use,starting_row, steps_ahead) {
   # Iterate for the number of steps you want to forecast
   for(i in 2:steps_ahead-1) {
     # Create oil  lag 1
-    temp$oil_lag1[l_base + i] <- temp$oil[l_base + i - 1]
+    temp$oil_lag1[l_base + i] <- temp$oil[l_base + i - 12]
     # Calculate long term correction
     temp$long_term_correction[l_base + i] <- temp$oil_lag1[l_base + i] - lm1$coefficients[1] - lm1$coefficients[2] * temp$B10_lag1[l_base + i]
 
@@ -339,10 +353,26 @@ forecast_ECM <- function(data_to_use,starting_row, steps_ahead) {
   return(temp)
 }
 
+test <- create_data_forecast(ECM_Data, nrow(ECM_Data), 36)
 # Example usage: Forecasting 5 steps ahead
-yay <- forecast_ECM(data_forecast,nrow(ECM_Data),36)
+yay <- forecast_ECM(test,nrow(ECM_Data),36)
+
+test1 <- create_data_forecast(ECM_Data,400, 36)
+# Example usage: Forecasting 5 steps ahead
+yay1 <- forecast_ECM(test1,nrow(test1)-36,36)
+
+test2 <- create_data_forecast(ECM_Data,375, 36)
+# Example usage: Forecasting 5 steps ahead
+yay2 <- forecast_ECM(test1,nrow(test2)-36,36)
+
+test3 <- create_data_forecast(ECM_Data,350, 36)
+# Example usage: Forecasting 5 steps ahead
+yay3 <- forecast_ECM(test1,nrow(test3)-36,36)
 
 
 #plot oil delta from row 400
-plot(yay$oil_delta[400:nrow(yay)], type = "l", col = "red")
-lines(ECM_Data$oil_delta[400:nrow(ECM_Data)], type = "l", col = "blue")
+plot(yay$oil_delta, type = "l", col = "red")
+lines(ECM_Data$oil_delta, type = "l", col = "blue")
+lines(yay1$oil_delta, type = "l", col = "green")
+lines(yay2$oil_delta, type = "l", col = "yellow")
+lines(yay3$oil_delta, type = "l", col = "black")
