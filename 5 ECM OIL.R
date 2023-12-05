@@ -90,8 +90,24 @@ summary(test)
 ######
 # 5 estimate the ecm
 ######
-
 the_famous_ECM <- function (data){
+lm1 <- lm(data$Petroleum.products~data$B20) #Create the linear regression
+
+#create a lag ofe one for OIL and B10
+data$B20_lag1 <- lag(data$B20,1)
+data$Petroleum.products_lag1 <- lag(data$Petroleum.products,1)
+#create a delta of OIL and B10
+data$B20_delta <- (data$B20 - data$B20_lag1)
+data$Petroleum.products_delta <- (data$Petroleum.products - data$Petroleum.products_lag1)
+#create long term correction
+data$long_term_correction <- data$Petroleum.products_lag1 - lm1$coefficients[1] - lm1$coefficients[2] * data$B20_lag1
+
+lm2 <- lm(data$Petroleum.products_delta~data$B20_delta + data$long_term_correction ) #Create the linear regression
+
+return(data)
+}
+
+the_famous_ECM_coeff <- function (data){
 lm1 <- lm(data$Petroleum.products~data$B20) #Create the linear regression
 
 #create a lag ofe one for OIL and B10
@@ -114,9 +130,8 @@ lm2 <- lm(data$Petroleum.products_delta~data$B20_delta + data$long_term_correcti
 df <- data.frame(lm1_1, lm1_2, lm2_1, lm2_2, lm2_3, lm2_4)
 return(df)
 }
-
-
-coeff <- the_famous_ECM(ECM_Data)
+ECM_Data <- the_famous_ECM(ECM_Data)
+coeff <- the_famous_ECM_coeff(ECM_Data)
 
 
 #marche pas mais pas grave pour l'instant
@@ -150,6 +165,7 @@ forecast_ECM <- function(data_to_use,starting_row, steps_ahead,results_coeff) {
   # Iterate for the number of steps you want to forecast
   for(i in 1:steps_ahead-1) {
     # Create oil  lag 1
+    i
     temp$Petroleum.products_lag1[l_base + i] <- temp$Petroleum.products[l_base + i - 1]
     # Calculate long term correction
     temp$long_term_correction[l_base + i] <- temp$Petroleum.products_lag1[l_base + i] - results_coeff$lm1_1 -results_coeff$lm1_2* temp$B20_lag1[l_base + i]
@@ -184,16 +200,24 @@ lines(ECM_Data$Petroleum.products_delta, type = "l", col = "red")
 Petro_plot <- ts(ECM_Data$Petroleum.products_delta, start = c(1986,1), frequency = 12)
 plot(Petro_plot, type = "l", col = "red")
 # Example usage: Forecasting 36
-italian_dish(nrow(ECM_Data),ECM_Data,36,10,coeff)
+italian_dish(nrow(ECM_Data),ECM_Data,36,24,coeff)
 lines(Petro_plot, type = "l", col = "red")
 
 ######
 # 6 assess the model
 ######
 
-
-
-
+#exemple for row 300
+ECM_Data_2 <- ECM_Data[1:300,]
+ECM_Data_2 <- the_famous_ECM(ECM_Data_2)
+coeff <- the_famous_ECM_coeff(ECM_Data_2)
+test <- create_data_forecast(ECM_Data_2, nrow(ECM_Data_2),36)
+test <- forecast_ECM(test, nrow(ECM_Data_2),36,coeff)
+Error <- test$Petroleum.products_delta
+[330:366]
+titi <- ECM_Data$Petroleum.products_delta[330:366]
+E_squared <- Error^2
+MSFE <- mean(E_squared[1:35])
 
 
 
