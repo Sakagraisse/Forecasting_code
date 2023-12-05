@@ -91,24 +91,32 @@ summary(test)
 # 5 estimate the ecm
 ######
 
-lm1 <- lm(ECM_Data$Petroleum.products~ECM_Data$B20) #Create the linear regression
-summary(lm1)
-checkresiduals(lm1)
+the_famous_ECM <- function (data){
+lm1 <- lm(data$Petroleum.products~data$B20) #Create the linear regression
 
 #create a lag ofe one for OIL and B10
-ECM_Data$B20_lag1 <- lag(ECM_Data$B20,1)
-ECM_Data$Petroleum.products_lag1 <- lag(ECM_Data$Petroleum.products,1)
+data$B20_lag1 <- lag(data$B20,1)
+data$Petroleum.products_lag1 <- lag(data$Petroleum.products,1)
 #create a delta of OIL and B10
-ECM_Data$B20_delta <- (ECM_Data$B20 - ECM_Data$B20_lag1)
-ECM_Data$Petroleum.products_delta <- (ECM_Data$Petroleum.products - ECM_Data$Petroleum.products_lag1)
+data$B20_delta <- (data$B20 - data$B20_lag1)
+data$Petroleum.products_delta <- (data$Petroleum.products - data$Petroleum.products_lag1)
 #create long term correction
-ECM_Data$long_term_correction <- ECM_Data$Petroleum.products_lag1 - lm1$coefficients[1] - lm1$coefficients[2] * ECM_Data$B20_lag1
+data$long_term_correction <- data$Petroleum.products_lag1 - lm1$coefficients[1] - lm1$coefficients[2] * data$B20_lag1
 
-lm2 <- lm(ECM_Data$Petroleum.products_delta~ECM_Data$B20_delta + ECM_Data$long_term_correction ) #Create the linear regression
-plot(lm2$fitted.values)
-checkresiduals(lm2)
+lm2 <- lm(data$Petroleum.products_delta~data$B20_delta + data$long_term_correction ) #Create the linear regression
+#store the coefficionts in a dataframe
+  lm1_1 <- lm1$coefficients[1]
+  lm1_2 <- lm1$coefficients[2]
+  lm2_1 <- lm2$coefficients[1]
+  lm2_2 <- lm2$coefficients[2]
+  lm2_3 <- lm2$coefficients[3]
+  lm2_4 <- lm2$coefficients[4]
+df <- data.frame(lm1_1, lm1_2, lm2_1, lm2_2, lm2_3, lm2_4)
+return(df)
+}
 
-Box.test(lm2$residuals, lag = 1, type = "Ljung-Box")
+
+coeff <- the_famous_ECM(ECM_Data)
 
 
 #marche pas mais pas grave pour l'instant
@@ -135,7 +143,7 @@ create_data_forecast <- function(data_to_use, end_row, steps_ahead) {
 
 
   # Function to forecast future values
-forecast_ECM <- function(data_to_use,starting_row, steps_ahead) {
+forecast_ECM <- function(data_to_use,starting_row, steps_ahead,results_coeff) {
   temp <- data_to_use
   # Initialize the forecast dataframe with the last row of ECM_Data
   l_base <- starting_row
@@ -144,10 +152,10 @@ forecast_ECM <- function(data_to_use,starting_row, steps_ahead) {
     # Create oil  lag 1
     temp$Petroleum.products_lag1[l_base + i] <- temp$Petroleum.products[l_base + i - 1]
     # Calculate long term correction
-    temp$long_term_correction[l_base + i] <- temp$Petroleum.products_lag1[l_base + i] - lm1$coefficients[1] - lm1$coefficients[2] * temp$B20_lag1[l_base + i]
+    temp$long_term_correction[l_base + i] <- temp$Petroleum.products_lag1[l_base + i] - results_coeff$lm1_1 -results_coeff$lm1_2* temp$B20_lag1[l_base + i]
 
     # Calculate OIL delta
-    temp$Petroleum.products_delta[l_base + i] <- lm2$coefficients[1] + lm2$coefficients[3] * temp$long_term_correction[l_base + i]
+    temp$Petroleum.products_delta[l_base + i] <- results_coeff$lm2_1  + results_coeff$lm2_3 * temp$long_term_correction[l_base + i]
 
     # Update the value of oil
     temp$Petroleum.products[l_base + i] <- temp$Petroleum.products_lag1[l_base + i] + temp$Petroleum.products_delta[l_base + i]
@@ -157,26 +165,26 @@ forecast_ECM <- function(data_to_use,starting_row, steps_ahead) {
   return(temp)
 }
 
-italian_dish <- function(end, data,steps_ahead, step){
+italian_dish <- function(end, data,steps_ahead, step,results_coeff){
   #loop on 4 by 4
   for(i in seq(from = steps_ahead, to=end, by=step)){
     # truncate the number of lines of data
     cherpa <- create_data_forecast(data, i, steps_ahead)
-    forecast <- forecast_ECM(cherpa, i ,steps_ahead)
+    forecast <- forecast_ECM(cherpa, i ,steps_ahead, results_coeff)
     toplot <- ts(forecast$Petroleum.products_delta, start = c(1986,1), frequency = 12)
     lines(toplot, type = "l", col = "blue")
     }
 }
 
 test <- create_data_forecast(ECM_Data, nrow(ECM_Data),36)
-test <- forecast_ECM(test, nrow(ECM_Data),36)
+test <- forecast_ECM(test, nrow(ECM_Data),36,coeff)
 plot(test$Petroleum.products_delta, type = "l", col = "blue")
 lines(ECM_Data$Petroleum.products_delta, type = "l", col = "red")
 
 Petro_plot <- ts(ECM_Data$Petroleum.products_delta, start = c(1986,1), frequency = 12)
 plot(Petro_plot, type = "l", col = "red")
 # Example usage: Forecasting 36
-italian_dish(nrow(ECM_Data),ECM_Data,36,10)
+italian_dish(nrow(ECM_Data),ECM_Data,36,10,coeff)
 lines(Petro_plot, type = "l", col = "red")
 
 ######
