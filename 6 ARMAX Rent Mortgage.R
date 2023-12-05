@@ -41,12 +41,46 @@ plot(CPIs$Year, CPIs$Rent, type = "l", col = "red", xlab = "Year", ylab = "Infla
 plot(CPIs$Year, CPIs$Mortgage, type = "l", col = "red", xlab = "Year", ylab = "Inflation rate", main = "Inflation rate of mortgage")
 
 #auto arimaX fit CPIs$Rent using CPIs$Mortgage as exogenous variable
-fit <- auto.arima(CPIs$Rent, xreg = CPIs$Mortgage, seasonal = FALSE, approximation = FALSE, trace=TRUE)
+Rent <- ts(CPIs$Rent, start = c(2008,7), frequency = 12)
+Mortgage <- ts(CPIs$Mortgage, start = c(2008,7), frequency = 12)
 
-# #reduce data to remove NAs introduced by the lag
-CPIs <- CPIs[13:nrow(CPIs),]
+fit <- auto.arima(Rent, xreg = Mortgage, seasonal = FALSE, approximation = FALSE, trace=TRUE)
 
-#manually check the best model by finding p,d,q in an ARIMA(p,d,q) model
-#check for d with dickey fuller test
-adf.test(CPIs$Rent, alternative = "stationary", k = trunc((length(CPIs$Rent)-1)^(1/3)))
-## NOT stationnary
+fit2 <- auto.arima(Mortgage, seasonal = TRUE, approximation = FALSE, trace=TRUE)
+forecast_mortgage <- forecast(fit2, h = 12)
+forecast_mortgage <- ts(forecast_mortgage$mean, start = c(2008,7), frequency = 12)
+plot(forecast_mortgage)
+
+#forecast CPIs$Rent using CPIs$Mortgage as exogenous variable
+forecast_rent <- forecast(fit, xreg = forecast_mortgage, h = 12)
+plot(forecast_rent)
+
+
+Inflation.withoutRI_log <- ts(CPIs$Inflation.withoutRI_log,start = c(1984,1), frequency = 12)
+out_of_sample <- data.frame(matrix(ncol = 1, nrow = 36))
+mean_of_fit <- data.frame(matrix(ncol = 1, nrow = 36))
+end <- length(Rent)
+end <- end - 36
+plot(Rent)
+#iterate from line 36 to the en of CPIs
+for (i in 37:end){
+    temporary_r <- Rent[1:i-1]
+    temporary_m <- Mortgage[1:i-1]
+    temporary_r <- ts(temporary_r, start = c(2008,7), frequency = 12)
+    end_year <- end(temporary_r)[1]
+    end_month <- end(temporary_r)[2]
+    #fit arima model on the first i-1 observations
+    fit4 <- auto.arima(temporary_r, xreg = temporary_m,seasonal = FALSE, approximation = FALSE, trace=TRUE)
+    fit5 <- auto.arima(temporary_m, seasonal = TRUE, approximation = FALSE, trace=TRUE)
+    forecast_mortgage <- forecast(fit5, h = 12)
+    forecast_mortgage <- ts(forecast_mortgage$mean, start = c(2008,7), frequency = 12)
+    #forecast the i-th observation
+    fore <- forecast(fit4, xreg = forecast_mortgage,h = 36)
+    fore <- fore$mean
+    print <- ts(fore, start = c(end_year, end_month + 1 ), frequency = 12)
+    lines(print, col="red")
+}
+
+
+
+
