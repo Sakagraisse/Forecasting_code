@@ -208,22 +208,31 @@ lines(Petro_plot, type = "l", col = "red")
 ######
 
 #exemple for row 300
-ECM_Data_2 <- ECM_Data[1:300,]
+ECM_Data_2 <- ECM_Data[1:330,]
 ECM_Data_2 <- the_famous_ECM(ECM_Data_2)
 coeff <- the_famous_ECM_coeff(ECM_Data_2)
 test <- create_data_forecast(ECM_Data_2, nrow(ECM_Data_2),36)
 test <- forecast_ECM(test, nrow(ECM_Data_2),36,coeff)
-Error <- test$Petroleum.products_delta
-[330:366]
-titi <- ECM_Data$Petroleum.products_delta[330:366]
+Error <- test$Petroleum.products_delta[331:366] - ECM_Data$Petroleum.products_delta[331:366]
 E_squared <- Error^2
 MSFE <- mean(E_squared[1:35])
 
+# train and compare an AR1 model
+# train AR1 model on the first 330 observations
+Petroleum.products_ <- ts(ECM_Data$Petroleum.products_delta[2:330], start = c(1986,2), frequency = 12)
+fit <- arima(Petroleum.products_, order = c(1,0,0), method = "ML")
+forecast_ar1 <- forecast(fit, h = 36)
+Error_ar <- forecast_ar1$mean - ECM_Data$Petroleum.products_delta[331:366]
+E_squared_ar <- Error_ar^2
+MSFE_ar <- mean(E_squared_ar[1:35])
 
+plot(E_squared, type = "l", col = "blue")
+plot(E_squared_ar, type = "l", col = "red")
 
+MSFE_predictive <- 1 - (MSFE/MSFE_ar)
 
-
-
+dm.test(E_squared, E_squared_ar, alternative = "two.sided", h = 35, power = 2,varestimator = "bartlett")
+# code the dieblold mariano test
 
 
 
