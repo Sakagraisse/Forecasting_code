@@ -104,12 +104,12 @@ ECM_Data$Petroleum.products_delta <- (ECM_Data$Petroleum.products - ECM_Data$Pet
 #create long term correction
 ECM_Data$long_term_correction <- ECM_Data$Petroleum.products_lag1 - lm1$coefficients[1] - lm1$coefficients[2] * ECM_Data$B20_lag1
 
-lm2 <- lm(ECM_Data$Petroleum.products~ECM_Data$B20_delta + ECM_Data$long_term_correction ) #Create the linear regression
+lm2 <- lm(ECM_Data$Petroleum.products_delta~ECM_Data$B20_delta + ECM_Data$long_term_correction ) #Create the linear regression
 plot(lm2$fitted.values)
 checkresiduals(lm2)
 
 Box.test(lm2$residuals, lag = 1, type = "Ljung-Box")
-plot(lm2$residuals)
+
 
 #marche pas mais pas grave pour l'instant
 
@@ -119,8 +119,8 @@ plot(lm2$residuals)
 
 #create function to create data_forcast from different lenghts of row ECM_Data
 create_data_forecast <- function(data_to_use, end_row, steps_ahead) {
-  data_forecast <- data_to_use[1:end_row, c(1,5:11)]
-  ll <- length(data_forecast$B10)
+  data_forecast <- data_to_use[1:end_row,]
+  ll <- length(data_forecast$B20)
   new_rows <- data.frame(matrix(NA, nrow = 36, ncol = ncol(data_forecast)))
   colnames(new_rows) <- colnames(data_forecast)
   data_forecast <- rbind(data_forecast, new_rows)
@@ -140,9 +140,9 @@ forecast_ECM <- function(data_to_use,starting_row, steps_ahead) {
   # Initialize the forecast dataframe with the last row of ECM_Data
   l_base <- starting_row
   # Iterate for the number of steps you want to forecast
-  for(i in 2:steps_ahead-1) {
+  for(i in 1:steps_ahead-1) {
     # Create oil  lag 1
-    temp$Petroleum.products_lag1[l_base + i] <- temp$Petroleun.products[l_base + i - 1]
+    temp$Petroleum.products_lag1[l_base + i] <- temp$Petroleum.products[l_base + i - 1]
     # Calculate long term correction
     temp$long_term_correction[l_base + i] <- temp$Petroleum.products_lag1[l_base + i] - lm1$coefficients[1] - lm1$coefficients[2] * temp$B20_lag1[l_base + i]
 
@@ -157,30 +157,47 @@ forecast_ECM <- function(data_to_use,starting_row, steps_ahead) {
   return(temp)
 }
 
-test <- create_data_forecast(ECM_Data, nrow(ECM_Data), 36)
-# Example usage: Forecasting 5 steps ahead
-yay <- forecast_ECM(test,nrow(ECM_Data),36)
+italian_dish <- function(end, data,steps_ahead, step){
+  #loop on 4 by 4
+  for(i in seq(from = steps_ahead, to=end, by=step)){
+    # truncate the number of lines of data
+    cherpa <- create_data_forecast(data, i, steps_ahead)
+    forecast <- forecast_ECM(cherpa, i ,steps_ahead)
+    toplot <- ts(forecast$Petroleum.products_delta, start = c(1986,1), frequency = 12)
+    lines(toplot, type = "l", col = "blue")
+    }
+}
 
-test1 <- create_data_forecast(ECM_Data,400, 36)
-# Example usage: Forecasting 5 steps ahead
-yay1 <- forecast_ECM(test1,nrow(test1)-36,36)
+test <- create_data_forecast(ECM_Data, nrow(ECM_Data),36)
+test <- forecast_ECM(test, nrow(ECM_Data),36)
+plot(test$Petroleum.products_delta, type = "l", col = "blue")
+lines(ECM_Data$Petroleum.products_delta, type = "l", col = "red")
 
-test2 <- create_data_forecast(ECM_Data,375, 36)
-# Example usage: Forecasting 5 steps ahead
-yay2 <- forecast_ECM(test1,nrow(test2)-36,36)
+Petro_plot <- ts(ECM_Data$Petroleum.products_delta, start = c(1986,1), frequency = 12)
+plot(Petro_plot, type = "l", col = "red")
+# Example usage: Forecasting 36
+italian_dish(nrow(ECM_Data),ECM_Data,36,10)
+lines(Petro_plot, type = "l", col = "red")
 
-test3 <- create_data_forecast(ECM_Data,350, 36)
-# Example usage: Forecasting 5 steps ahead
-yay3 <- forecast_ECM(test1,nrow(test3)-36,36)
+######
+# 6 assess the model
+######
 
-test4 <- create_data_forecast(ECM_Data,300, 36)
-# Example usage: Forecasting 5 steps ahead
-yay4 <- forecast_ECM(test1,nrow(test4)-36,36)
-#plot oil delta from row 400
-plot(yay$Petroleum.products_delta, type = "l", col = "red")
 
-lines(yay1$Petroleum.products_delta, type = "l", col = "green")
-lines(yay2$Petroleum.products_delta, type = "l", col = "yellow")
-lines(yay3$Petroleum.products_delta, type = "l", col = "black")
-lines(yay4$Petroleum.products_delta, type = "l", col = "purple")
-lines(ECM_Data$Petroleum.products_delta, type = "l", col = "blue")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
