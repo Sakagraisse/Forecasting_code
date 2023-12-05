@@ -1,13 +1,40 @@
+#clean space
 rm(list = ls())
-##Not run
-    data(Wilshire)
-    #Rebuilding model1 from ecm example
-    trn <- Wilshire[Wilshire$date<='2015-12-01',]
-    xeq <- xtr <- trn[c('CorpProfits', 'FedFundsRate', 'UnempRate')]
-    model1 <- ecm(trn$Wilshire5000, xeq, xtr)
-    model2 <- ecm(trn$Wilshire5000, xeq, xtr, linearFitter='earth')
-    #Use 2015-12-01 and onwards data as test data to predict
-    tst <- Wilshire[Wilshire$date>='2015-12-01',]
-    #predict on tst using model1 and initial FedFundsRate
-    tst <- ecmpredict(model1, tst, tst$Wilshire5000[1])
-    tst$model2Pred <- ecmpredict(model2, tst, tst$Wilshire5000[1])
+# ##import data in excell format from the first table only
+if(!require(readxl)) install.packages("readxl")
+if(!require(reshape2)) install.packages("reshape2")
+if(!require(dplyr)) install.packages("dplyr")
+if(!require(lubridate)) install.packages("lubridate")
+if(!require(urca)) install.packages("urca")
+if(!require(ecm)) install.packages("ecm")
+if(!require(forecast)) install.packages("forecast")
+if(!require(tseries)) install.packages("tseries")
+if(!require(lubridate)) install.packages("lubridate")
+if(!require(zoo)) install.packages("zoo")
+if(!require(tempdisagg)) install.packages("tempdisagg")
+if(!require(openxlsx)) install.packages("openxlsx")
+library(readxl)
+library(reshape2)
+library(ecm)
+library(urca)
+library(dplyr)
+library(lubridate)
+library(zoo)
+library(forecast)
+library(tseries)
+library(lubridate)
+library(tempdisagg)
+library(openxlsx)
+
+
+#load data : CPIs.RData
+load("CPIs.RData")
+
+CPIs$Total2 <- CPIs$Total/lag(CPIs$Total,12)
+
+plot(CPIs$Year, CPIs$Total2, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "1")
+plot(CPIs$Year, CPIs$Total, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "2")
+
+
+
+

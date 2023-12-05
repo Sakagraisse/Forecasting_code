@@ -1,4 +1,4 @@
-## Read Data ---------------------------------------------------------------
+# Read Data ---------------------------------------------------------------
 
 #clean space
 rm(list = ls())
@@ -10,6 +10,7 @@ rm(list = ls())
 #install.packages("forecast")
 #install.packages("tseries")
 #install.packages((lubridate))
+#install.packages("tempdisagg")
 
 library(readxl)
 library(zoo)
@@ -17,15 +18,17 @@ library(dplyr)
 library(forecast)
 library(tseries)
 library(lubridate)
+library(tempdisagg)
+library(ggplot2)
+packageVersion("tempdisagg")
+library(reshape2)
 
 rm(list = ls())
-data <- read_excel("CPI_2020.xlsx", sheet = 1, col_names = TRUE, skip = 1)
+data <- read_excel("~/Desktop/Econ Forcasting/CPI_Forecast/CPI_2020.xlsx", sheet = 1, col_names = TRUE, skip = 1)
 #check which type is data
 class(data)
-
 #Remove the first 5 columns
 data <- data[,12:504]
-
 #Remove the columns 2
 data <- data[,-2]
 #Remove columns 3
@@ -59,12 +62,10 @@ data <- data.frame(lapply(data, as.numeric))
 #format the first column of date to display a date from the excel way of counting using openxlsx package
 data$Year <- as.Date(as.numeric(data$Year), origin = "1899-12-30")
 
-
-#####Rent data quarterly-----
 #Mortgage rate quarterly
 
 #import excel file with mortgage rate
-data2 <- read_excel("mortgage_rate_c.xlsx", sheet = 1, col_names = TRUE)
+data2 <- read_excel("/Users/abigailvasquez/Desktop/Econ Forcasting/CPI_Forecast/mortgage_rate_c.xlsx", sheet = 1, col_names = TRUE)
 
 #rename first column "mortgage rate"
 colnames(data2)[1] <- "mortgage.rate"
@@ -110,21 +111,15 @@ data3 <- data3[-c(1:102),]
 #rename quareterly_rent to Rent
 colnames(data3)[1] <- "Rent"
 
-#Merge data3 and data 2
+#Merge data3 and data2
 data3$mortgage.rate <- data2$mortgage.rate
 
 #create the "good monthly" times series using show_lin
-
-install.packages("tempdisagg")
-library(tempdisagg)
-packageVersion("tempdisagg")
-install.packages("tempdisagg")
 # Exemple de séries trimestrielles
 rent_quarterly <- ts(data3$Rent, start=c(2008,3), frequency=4)
 mortgage_rate_quarterly <- ts(data3$mortgage.rate, start=c(2008,3), frequency=4)
 
 #create a dataset with housing.and.energy from data but only the last 309 lines
-
 data4 <- data$Housing.and.energy
 #only keep the last 309 lines of data4
 data4 <- data4[-c(1:309)]
@@ -145,12 +140,9 @@ rent_monthly_inflation <- log(rent_monthly_numeric/lag(rent_monthly_numeric, 12)
 
 
 ###### Rent forecast -----
-#ARIMA model for rent  with mortgage rate as exogenous variable
-# Dclate Rent as a quaretly time series
+# Declare Rent as a quaretly time series
 Rent <- ts(rent_monthly_inflation,start=c(2008,6),frequency=12)
 mortgage.rate <- ts(mortgage_rate_monthly_numeric,start=c(2008,6),frequency=12)
-
-
 
 #adf.test(Rent)
 #rent.diff <- diff(Rent)
@@ -159,7 +151,7 @@ mortgage.rate <- ts(mortgage_rate_monthly_numeric,start=c(2008,6),frequency=12)
 #adf.test(mortgage.rate)
 #mortgage.rate.diff <- diff(mortgage.rate)
 #adf.test(mortgage.rate.diff)
-
+#ARIMA model for rent  with mortgage rate as exogenous variable
 fit <- auto.arima(Rent, xreg = mortgage.rate, seasonal=FALSE, approximation=FALSE, trace=TRUE)
 summary(fit)
 checkresiduals(fit)
@@ -167,11 +159,10 @@ checkresiduals(fit)
 ## Forecast of the mortgage rate
 # Fit an ARMA model to the historical mortgage rate data
 #first difference for mortgage rate
-
 fit2 <- auto.arima(mortgage.rate, seasonal=FALSE, stepwise=TRUE, approximation=FALSE)
 checkresiduals (fit2)
 # Use the fitted ARMA model to forecast future mortgage rates
-future_mortgage_rate_forecast <- forecast(fit2, h=12)
+future_mortgage_rate_forecast <- forecast(fit2, h=36)
 # The forecast object contains point forecasts, lower and upper confidence intervals
 print(future_mortgage_rate_forecast)
 # Plot the forecast to visualize
@@ -179,17 +170,16 @@ plot(future_mortgage_rate_forecast)
 # Extract the point forecasts of the future mortgage rates
 future_mortgage_rate_values <- future_mortgage_rate_forecast$mean
 # Forecasted mortgage rate values as the exogenous variable in the rent forecast
-rent_forecast <- forecast(fit, xreg=future_mortgage_rate_values, h=12)
+rent_forecast <- forecast(fit, xreg=future_mortgage_rate_values, h=36)
 # Plot the forecast of rent
 plot(rent_forecast)
+
 # Print the forecasted rent values
 print(rent_forecast)
-#transform point forecast values to inflation rate
-
 
 #Forecast of Total----------
 #build a new column = data$Total - data$rent - oil
-data5 <- data[,c(1,2,156,188)]
+datdenton-cholette,2,156,188)]
 #keep after line 306
 data5 <- data5[-c(1:305),]
 
@@ -208,9 +198,104 @@ Total_wor <- na.omit(Total_wor)
 fit3 <- auto.arima(Total_wor, seasonal=FALSE, approximation=FALSE, trace=TRUE)
 summary(fit3)
 checkresiduals(fit3)
-total_forecast_monthly <- forecast(fit3,  h=36)
+total_wor_forecast_monthly <- forecast(fit3,  h=36)
 # Plot the forecast of rent
 plot(total_forecast_monthly$residuals)
 # Print the forecasted rent values
 print(total_forecast_monthly)
- plot(total_forecast_monthly$residuals)
+plot(total_forecast_monthly$residuals)
+
+
+
+#Out-of-sample forecast evaluation--------------
+#Create data5 with the first 43 lines of data3
+data6 <- data3[1:42,]
+#create the "good monthly" times series using show_lin
+# Exemple de séries trimestrielles
+rent_quarterly <- ts(data6$Rent, start=c(2008,3), frequency=4)
+mortgage_rate_quarterly <- ts(data6$mortgage.rate, start=c(2008,3), frequency=4)
+
+rent_monthly <- td(rent_quarterly ~ 1, to = "monthly", method = "denton-cholette")
+mortgage_rate_monthly <- td(mortgage_rate_quarterly ~ 1, to = "monthly", method = "denton-cholette")
+
+plot(rent_monthly)
+plot(mortgage_rate_monthly)
+
+rent_monthly_numeric <- as.numeric(rent_monthly[[1]])
+mortgage_rate_monthly_numeric <- as.numeric(mortgage_rate_monthly[[1]])
+rent_monthly_inflation <- log(rent_monthly_numeric/lag(rent_monthly_numeric, 12))
+
+print (rent_monthly_inflation)
+Rent_cut <- ts(rent_monthly_inflation,start=c(2008,9),frequency=12)
+mortgage.rate <- ts(mortgage_rate_monthly_numeric,start=c(2008,9),frequency=12)
+
+fit <- auto.arima(Rent_cut, xreg = mortgage.rate, seasonal=FALSE, approximation=FALSE, trace=TRUE)
+summary(fit)
+checkresiduals(fit)
+
+## Forecast of the mortgage rate
+# Fit an ARMA model to the historical mortgage rate data
+#first difference for mortgage rate
+fit2 <- auto.arima(mortgage.rate, seasonal=FALSE, stepwise=TRUE, approximation=FALSE)
+checkresiduals (fit2)
+# Use the fitted ARMA model to forecast future mortgage rates
+future_mortgage_rate_forecast <- forecast(fit2, h=36)
+# The forecast object contains point forecasts, lower and upper confidence intervals
+print(future_mortgage_rate_forecast)
+# Plot the forecast to visualize
+plot(future_mortgage_rate_forecast)
+# Extract the point forecasts of the future mortgage rates
+future_mortgage_rate_values <- future_mortgage_rate_forecast$mean
+# Forecasted mortgage rate values as the exogenous variable in the rent forecast
+rent_forecast <- forecast(fit, xreg=future_mortgage_rate_values, h=36)
+# Plot the forecast of rent
+plot(Rent)
+lines(rent_forecast$mean, col="red")
+
+#Spaghetti graph of Rent forecast
+for(i in 0:20){
+
+  data6 <- data3[1:(42+i),]
+  #create the "good monthly" times series using show_lin
+   #Exemple de séries trimestrielles
+  rent_quarterly <- ts(data6$Rent, start=c(2008,3), frequency=4)
+mortgage_rate_quarterly <- ts(data6$mortgage.rate, start=c(2008,3), frequency=4)
+
+  rent_monthly <- td(rent_quarterly ~ 1, to = "monthly", method = "denton-cholette")
+  mortgage_rate_monthly <- td(mortgage_rate_quarterly ~ 1, to = "monthly", method = "denton-cholette")
+
+  rent_monthly_numeric <- as.numeric(rent_monthly[[1]])
+  mortgage_rate_monthly_numeric <- as.numeric(mortgage_rate_monthly[[1]])
+  rent_monthly_inflation <- log(rent_monthly_numeric/lag(rent_monthly_numeric, 12))
+
+  Rent_cut <- ts(rent_monthly_inflation,start=c(2008,9),frequency=12)
+  mortgage.rate <- ts(mortgage_rate_monthly_numeric,start=c(2008,9),frequency=12)
+
+
+  fit <- auto.arima(Rent_cut, xreg = mortgage.rate, seasonal=FALSE, approximation=FALSE, trace=TRUE)
+
+  ## Forecast of the mortgage rate
+  # Fit an ARMA model to the historical mortgage rate data
+  #first difference for mortgage rate
+  fit2 <- auto.arima(mortgage.rate, seasonal=FALSE, stepwise=TRUE, approximation=FALSE)
+
+  # Use the fitted ARMA model to forecast future mortgage rates
+  future_mortgage_rate_forecast <- forecast(fit2, h=36)
+  # The forecast object contains point forecasts, lower and upper confidence intervals
+
+  # Plot the forecast to visualize
+
+  # Extract the point forecasts of the future mortgage rates
+  future_mortgage_rate_values <- future_mortgage_rate_forecast$mean
+  # Forecasted mortgage rate values as the exogenous variable in the rent forecast
+  rent_forecast <- forecast(fit, xreg=future_mortgage_rate_values, h=36)
+  # Plot the forecast of rent
+  if(i==0){
+
+    plot(Rent)
+  }
+
+  rent_forecast_all <- ts(c(tail(Rent_cut,1),rent_forecast$mean),start=c(end(tail(Rent_cut,1))),frequency=12)
+  lines(rent_forecast_all, col="red")
+
+}
