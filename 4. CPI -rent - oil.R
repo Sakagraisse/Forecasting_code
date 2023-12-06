@@ -26,8 +26,9 @@ library(lubridate)
 library(tempdisagg)
 library(openxlsx)
 
-
-#load data : CPIs.RData
+######
+# Load data set and creat useful variables
+######
 #load data : CPIs.RData
 load("CPIs.RData")
 #CPIs <- CPIs_trunk
@@ -37,12 +38,31 @@ CPIs$Inf_Rent <- log(CPIs$`Housing.rental.1`/lag(CPIs$`Housing.rental.1`,3))
 CPIs$Inf_Total <- log(CPIs$Total/lag(CPIs$Total,1))
 CPIs$Inflation.withoutRI_log <- (CPIs$Inf_Total - 0.02879*CPIs$Inf_OIL - 0.18625*CPIs$Inf_Rent)/0.78496
 
-#plot without rent index and withoutRI
-plot(CPIs$Year, CPIs$`Inflation.withoutRI_log`, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
-plot(CPIs$Year, CPIs$Inf_Total, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
 
-#auto arima fit CPIs$Inflation.withoutRI
+#plot without rent index and withoutRI and save
+plot1 <- ts(CPIs$Inflation.withoutRI_log, start = c(1984,1), frequency = 12)
+plot2 <- ts(CPIs$Inf_Total, start = c(1984,1), frequency = 12)
+plot(plot1, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
+lines(plot2, type = "l", col = "blue")
+rm(plot1, plot2)
+
+######
+# 2 Fitting ARIMA model
+######
+
+# try with auto arima :
 fit <- auto.arima(CPIs$Inflation.withoutRI_log, seasonal = FALSE, approximation = FALSE, trace=TRUE)
+# suggest a ARIMA(1,1,0) model
+
+#check stationnarity manually
+#manually check the best model by finding p,d,q in an ARIMA(p,d,q) model
+#check for d with dickey fuller test
+adf.test(CPIs$Inflation.withoutRI_log, alternative = "stationary", k = trunc((length(CPIs$Inflation.withoutRI_log)-1)^(1/3)))
+## Not Stationnary
+# check with KPSS
+kpss.test(CPIs$Inflation.withoutRI_log, null = "Trend", lshort = TRUE)
+## is stationnary
+
 
 #reduce data to remove NAs introduced by the lag
 CPIs <- CPIs[13:nrow(CPIs),]
@@ -112,7 +132,7 @@ for (i in 37:end){
     end_year <- end(temporary)[1]
     end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
-    fit <- auto.arima(temporary, seasonal = FALSE, approximation = FALSE, trace=TRUE)
+    fit <- arima(temporary, order = c(1,1,0), method = "ML")
 
     #forecast the i-th observation
     fore <- forecast(fit, h = 36)
@@ -133,7 +153,50 @@ for (i in 37:end){
 
 #drop column one od out_of_sample
 Squared <- out_of_sample[,-1]
-# do the mean of each row of  out_of_sample
+#keep last column of squared
+Squared_last <- Squared[,405]
+MSFE <- mean(Squared_last)
 
-Squared <- rowMeans(Squared)
-plot(Squared)
+# do the mean of each row of  out_of_sample
+end <- length(CPIs$Inflation.withoutRI_log)-36
+Inf_test <- ts(CPIs$Inflation.withoutRI_log[1:end], start = c(1984,1), frequency = 12)
+
+fit_AR1 <- arima(Inf_test, order = c(1,0,0), method = "ML")
+forecast_ar1 <- forecast(fit_AR1, h = 36)
+Error_ar <- forecast_ar1$mean - CPIs$Inflation.withoutRI_log[end:end+35]
+E_squared_ar <- Error_ar^2
+MSFE_ar <- mean(E_squared_ar[1:35])
+
+
+MSFE_Predictive <- 1 - (MSFE/MSFE_ar)
+
+#Create empty column of 36
+MSFE_Predictive_BY <- 1- (Squared_last / E_squared_ar)
+plot(MSFE_Predictive_BY, type = "l", col = "blue")
+
+
+#Dieblod Mariano test
+Diebold <- rep(1, times = 36)
+for(u in 2:36){
+    tempo1 <- head(Squared_last,u)
+    tempo2 <- head(E_squared_ar,u)
+    gruik <- dm.test(tempo1 , tempo2, h = u, power = 2,varestimator = "bartlett")
+    Diebold[i] <- 2
+      #gruik2$statistic
+}
+gruik2 <- dm.test(Squared_last[1] , E_squared_ar[1], alternative = "two.sided", h = 1, power = 2,varestimator = "bartlett")
+gruik2 <- gruik[1]
+
+plot(Diebold, col = "blue")
+
+Diebold[1] <- as.numeric(gruik2[1])
+gruik2$statistic
+Squared_last[1:6]
+
+
+
+
+
+
+
+
