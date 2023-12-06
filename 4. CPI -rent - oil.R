@@ -112,7 +112,7 @@ for (i in 37:end){
     end_year <- end(temporary)[1]
     end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
-    fit <- auto.arima(temporary, seasonal = FALSE, approximation = FALSE, trace=TRUE)
+    fit <- arima(temporary, order = c(1,1,0), method = "ML")
 
     #forecast the i-th observation
     fore <- forecast(fit, h = 36)
@@ -133,7 +133,50 @@ for (i in 37:end){
 
 #drop column one od out_of_sample
 Squared <- out_of_sample[,-1]
-# do the mean of each row of  out_of_sample
+#keep last column of squared
+Squared_last <- Squared[,405]
+MSFE <- mean(Squared_last)
 
-Squared <- rowMeans(Squared)
-plot(Squared)
+# do the mean of each row of  out_of_sample
+end <- length(CPIs$Inflation.withoutRI_log)-36
+Inf_test <- ts(CPIs$Inflation.withoutRI_log[1:end], start = c(1984,1), frequency = 12)
+
+fit_AR1 <- arima(Inf_test, order = c(1,0,0), method = "ML")
+forecast_ar1 <- forecast(fit_AR1, h = 36)
+Error_ar <- forecast_ar1$mean - CPIs$Inflation.withoutRI_log[end:end+35]
+E_squared_ar <- Error_ar^2
+MSFE_ar <- mean(E_squared_ar[1:35])
+
+
+MSFE_Predictive <- 1 - (MSFE/MSFE_ar)
+
+#Create empty column of 36
+MSFE_Predictive_BY <- 1- (Squared_last / E_squared_ar)
+plot(MSFE_Predictive_BY, type = "l", col = "blue")
+
+
+#Dieblod Mariano test
+Diebold <- rep(1, times = 36)
+for(u in 2:36){
+    tempo1 <- head(Squared_last,u)
+    tempo2 <- head(E_squared_ar,u)
+    gruik <- dm.test(tempo1 , tempo2, h = u, power = 2,varestimator = "bartlett")
+    Diebold[i] <- 2
+      #gruik2$statistic
+}
+gruik2 <- dm.test(Squared_last[1] , E_squared_ar[1], alternative = "two.sided", h = 1, power = 2,varestimator = "bartlett")
+gruik2 <- gruik[1]
+
+plot(Diebold, col = "blue")
+
+Diebold[1] <- as.numeric(gruik2[1])
+gruik2$statistic
+Squared_last[1:6]
+
+
+
+
+
+
+
+
