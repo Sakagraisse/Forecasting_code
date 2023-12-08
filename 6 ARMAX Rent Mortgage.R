@@ -56,9 +56,9 @@ forecast_rent <- forecast(fit, xreg = forecast_mortgage, h = 12)
 plot(forecast_rent)
 
 
-Inflation.withoutRI_log <- ts(CPIs$Inflation.withoutRI_log,start = c(1984,1), frequency = 12)
-out_of_sample <- data.frame(matrix(ncol = 1, nrow = 36))
-mean_of_fit <- data.frame(matrix(ncol = 1, nrow = 36))
+#Inflation.withoutRI_log <- ts(CPIs$Inflation.withoutRI_log,start = c(1984,1), frequency = 12)
+#out_of_sample <- data.frame(matrix(ncol = 1, nrow = 36))
+#mean_of_fit <- data.frame(matrix(ncol = 1, nrow = 36))
 end <- length(Rent)
 end <- end - 36
 plot(Rent)
