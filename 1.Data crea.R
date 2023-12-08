@@ -83,36 +83,50 @@ Mortgage <- read_excel("mortgage_rate_c.xlsx", sheet = 1, col_names = TRUE)
 colnames(Mortgage)[1] <- "mortgage_rate"
 #rename second column "date"
 colnames(Mortgage)[2] <- "date"
-#create a dataframe with only dates generated monthly from 2008-03-01 to 2023-09-01
-dates <- seq(as.Date("2008-07-01"), as.Date("2023-09-01"), by = "month")
-indicator_monthly <- ts(dates, start=c(2008,7), frequency=12)
-Mortgage <- ts(Mortgage$mortgage_rate, frequency = 4, start = c(2008,3))
-Mortgage_q <- Mortgage
-monthly_series <- td(Mortgage ~ 1, to = "monthly", method = "denton-cholette")
-mort_monthly_numeric <- as.numeric(monthly_series[[1]])
+Mortgage <- Mortgage[order(Mortgage$date, decreasing = FALSE),]
+length(Mortgage$mortgage_rate)
+
+
+#indicator_monthly <- ts(dates, start=c(2008,7), frequency=12)
+#Mortgage <- ts(Mortgage$mortgage_rate, frequency = 4, start = c(2008,9))
+#Mortgage_q <-  as.numeric(Mortgage)
+#Mortgage_q <- ts(Mortgage_q, frequency = 4, start = c(2008,9))
+#monthly_series <- td(Mortgage ~ 1, to = "monthly", method = "denton-cholette")
+#mort_monthly_numeric <- as.numeric(monthly_series[[1]])
 #add the dates to the dataframe
-Mortgage <- data.frame(dates, mort_monthly_numeric)
+#Mortgage <- data.frame(dates, mort_monthly_numeric)
 # remove uneeded asset in memory
-rm(dates, indicator_monthly, monthly_series, mort_monthly_numeric)
+#rm(dates, indicator_monthly, monthly_series, mort_monthly_numeric)
 
 ### Rent
 rental <- CPIs
 #remove data before 2008-07-01
-CPIs_trunk <- rental[rental$Year >= as.Date("2008-07-01"),]
+CPIs_trunk <- rental[rental$Year >= as.Date("2008-09-01"),]
 #keep only rent
 rental <- CPIs_trunk$Housing.rental.1
 #convert to ts
-rental <- ts(rental, frequency = 12, start = c(2008,3))
+rental <- ts(rental, frequency = 12, start = c(2008,9))
 #convert to quarterly data
 quarterly_series <- aggregate(rental, nfrequency = 4, FUN = mean)
+length(quarterly_series)
+rent_q <- ts(quarterly_series, frequency = 4, start = c(2008,9))
 rent_q <- quarterly_series
+rent_q <- as.numeric(rent_q)
+rent_q <- ts(rent_q, frequency = 4, start = c(2008,9))
 # convert to monthly data
-monthly_series <- td(quarterly_series ~ 1, to = "monthly", method = "additive")
-rent_monthly_numeric <- as.numeric(monthly_series[[1]])
-dates <- seq(as.Date("2008-07-01"), as.Date("2023-09-01"), by = "month")
-indicator_monthly <- ts(dates, start=c(2008,7), frequency=12)
+#monthly_series <- td(quarterly_series ~ 1, to = "monthly", method = "additive")
+#rent_monthly_numeric <- as.numeric(monthly_series[[1]])
+#dates <- seq(as.Date("2008-07-01"), as.Date("2023-09-01"), by = "month")
+#indicator_monthly <- ts(dates, start=c(2008,7), frequency=12)
 #add the dates to the dataframe
-Rent <- data.frame(dates, rent_monthly_numeric)
+#Rent <- data.frame(dates, rent_monthly_numeric)
+
+#create data frame with rent_q and Mortgage_q
+length(Mortgage$mortgage_rate)
+length(rent_q)
+
+Rent_fore_q <- data.frame(Mortgage$mortgage_rate,rent_q)
+
 
 # remove uneeded asset in memory
 rm(dates, indicator_monthly, monthly_series, rent_monthly_numeric, rental, quarterly_series)

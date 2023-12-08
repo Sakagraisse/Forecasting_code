@@ -44,6 +44,15 @@ plot(CPIs$Year, CPIs$Mortgage, type = "l", col = "red", xlab = "Year", ylab = "I
 Rent <- ts(CPIs$Rent, start = c(2008,7), frequency = 12)
 Mortgage <- ts(CPIs$Mortgage, start = c(2008,7), frequency = 12)
 
+
+# Create the fourth lag of this difference
+mortgage.rate.lag4 <- lag(mortgage_rate_monthly_numeric, 4)
+# Remove the NA values that come from lagging
+mortgage.rate.diff.lag4 <- na.omit(mortgage.rate.lag4)
+# Shorten the Rent_inflation series to match the length of the lagged series
+Rent_inflation_adjusted <- rent_monthly_inflation[1:length(mortgage.rate.diff.lag4)]
+
+
 fit <- auto.arima(Rent, xreg = Mortgage, seasonal = FALSE, approximation = FALSE, trace=TRUE)
 
 fit2 <- auto.arima(Mortgage, seasonal = TRUE, approximation = FALSE, trace=TRUE)
