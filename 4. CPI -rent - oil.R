@@ -141,7 +141,6 @@ for (i in 37:end){
     end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
     fit <- auto.arima(temporary, seasonal = FALSE, approximation = FALSE, trace=TRUE)
-
     #forecast the i-th observation
     fore <- forecast(fit, h = 36)
     fore <- fore$mean
