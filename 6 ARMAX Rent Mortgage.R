@@ -86,14 +86,14 @@ for (i in 37:end){
 
     temporary_r <- Rent[1:i-1]
     temporary_m <- Mortgage[1:i-1]
-    temporary_r <- ts(temporary_r, start = c(2010,1), frequency = 36)
+    temporary_r <- ts(temporary_r, start = c(2010,1), frequency = 12)
     end_year <- end(temporary_r)[1]
     end_month <- end(temporary_r)[2]
     #fit arima model on the first i-1 observations
     fit4 <- arima(temporary_r, xreg = temporary_m, order = c(1,0,0))
     fit5 <- arima(temporary_m, order = c(2,0,0))
-    forecast_mortgage <- forecast(fit5, h = 12)
-    forecast_mortgage <- ts(forecast_mortgage$mean, start = c(2010,1), frequency = 36)
+    forecast_mortgage <- forecast(fit5, h = 36)
+    forecast_mortgage <- ts(forecast_mortgage$mean, start = c(2010,1), frequency = 12)
     #forecast the i-th observation
     fore <- forecast(fit4, xreg = forecast_mortgage,h = 36)
     fore <- fore$mean
