@@ -30,12 +30,40 @@ library(openxlsx)
 #load data : CPIs.RData
 #load data : CPIs.RData
 load("CPIs.RData")
+
+######### weight data
+dataw <- read_excel("wieght_data.xlsx", sheet = 1, col_names = TRUE)
 #CPIs <- CPIs_trunk
 #rm(CPIs_trunk)
 CPIs$Inf_OIL <- log(CPIs$`Petroleum.products`/lag(CPIs$`Petroleum.products`,1))
 CPIs$Inf_Rent <- log(CPIs$`Housing.rental.1`/lag(CPIs$`Housing.rental.1`,3))
 CPIs$Inf_Total <- log(CPIs$Total/lag(CPIs$Total,1))
-CPIs$Inflation.withoutRI_log <- (CPIs$Inf_Total - 0.02879*CPIs$Inf_OIL - 0.18625*CPIs$Inf_Rent)/0.78496
+length(CPIs)
+length(dataw)
+dataw <- dataw[,c(1:6)]
+#create a repetition of each line 12 times
+monthly_sequence <- rep(1:12, each = nrow(dataw))
+
+# Repeat each row in your_data 12 times
+monthly_data <- dataw[rep(seq_len(nrow(dataw)), each = 12), ]
+# have the same lenght for CPIs and weight
+CPIs <- CPIs[-c(1:204),]
+monthly_data <- monthly_data[c(1:285),]
+#create new column for weight of total minus oil minus rent
+monthly_data$Totalw_o_r <- monthly_data$Total - monthly_data$Oil - monthly_data$Rent
+#create time series for each column
+weight_rent <- ts(monthly_data$Rent, start = c(2000,1), frequency = 12)
+weight_oil <- ts(monthly_data$Oil, start = c(2000,1), frequency = 12)
+weight_w_o <- ts(monthly_data$Totalw_o, start = c(2000,1), frequency = 12)
+weight_w_r <- ts(monthly_data$Totalw_r, start = c(2000,1), frequency = 12)
+weight_w_o_r <- ts(monthly_data$Totalw_o_r, start = c(2000,1), frequency = 12)
+
+## create the wieghted CPIS for oil and rent
+#create loop to multiply each value of cpi with the weight
+for (i in 1:length(CPIs$Inf_Rent)){
+    CPIs$Inflation.withoutRI_log[i] <- (CPIs$Inf_Total[i] - CPIs$Inf_OIL[i]*weight_oil[i] - CPIs$Inf_Rent[i]*weight_rent[i]/weight_w_o_r[i])
+}
+
 
 #plot without rent index and withoutRI
 plot(CPIs$Year, CPIs$`Inflation.withoutRI_log`, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
