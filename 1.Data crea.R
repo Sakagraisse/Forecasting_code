@@ -98,7 +98,7 @@ CPIs_trunk <- rental[rental$Year >= as.Date("2008-09-01"),]
 #keep only rent
 rental <- as.numeric(CPIs_trunk$Housing.rental.1)
 
-#create data frame with rent and mortgage
+#create data frame with rent and mortgage monthly
 length(mortgage_rate_monthly)
 length(rental)
 length(CPIs_trunk$Year)
@@ -107,3 +107,11 @@ Rent_fore <- data.frame(CPIs_trunk$Year, rental, mortgage_rate_monthly)
 
 #save the data
 save(Rent_fore, file = "Rent_fore.RData")
+
+## create quarterly data for rental by averaging the monthly data
+
+
+
+
+
+

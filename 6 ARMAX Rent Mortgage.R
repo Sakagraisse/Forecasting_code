@@ -49,16 +49,26 @@ Mortgage <- log(CPIs$Mortgage/lag(CPIs$Mortgage,12))
 
 length(Rent)
 length(Mortgage)
+Mortgage <- ts(Mortgage, start = c(2008,9), frequency = 12)
+Rent <- ts(Rent, start = c(2008,9), frequency = 12)
+Rent <- na.omit(Rent)
+Mortgage <- na.omit(Mortgage)
+Mortgage <- ts(Mortgage, start = c(2009,9), frequency = 12)
+Rent <- ts(Rent, start = c(2009,9), frequency = 12)
+
 
 # Create the fourth lag of this difference
-mortgage.rate.lag4 <- lag(CPIs$Mortgage, 4)
+Mortgage <- as.numeric(Mortgage)
+mortgage.rate.lag4 <- lag(Mortgage, 4)
+
+Mortgage <- ts(mortgage.rate.lag4, start = c(2009,9), frequency = 12)
  #Remove the NA values that come from lagging
-Mortgage <- na.omit(mortgage.rate.lag4)
-length(Mortgage)
+Mortgage <- na.omit(Mortgage)
 Mortgage <- ts(Mortgage, start = c(2010,1), frequency = 12)
 
+Rent <- as.numeric(Rent)
 Rent <- Rent[-c(1:4)]
-Rent <- ts(Rent, start = c(2010,1), frequency = )
+Rent <- ts(Rent, start = c(2010,1), frequency = 12)
 
 length(Rent)
 length(Mortgage)
@@ -90,8 +100,8 @@ for (i in 37:end){
     end_year <- end(temporary_r)[1]
     end_month <- end(temporary_r)[2]
     #fit arima model on the first i-1 observations
-    fit4 <- arima(temporary_r, xreg = temporary_m, order = c(1,0,0))
-    fit5 <- arima(temporary_m, order = c(2,0,0))
+    fit4 <- arima(temporary_r, xreg = temporary_m, order = c(0,1,0))
+    fit5 <- arima(temporary_m, order = c(4,0,3))
     forecast_mortgage <- forecast(fit5, h = 36)
     forecast_mortgage <- ts(forecast_mortgage$mean, start = c(2010,1), frequency = 12)
     #forecast the i-th observation
@@ -102,5 +112,6 @@ for (i in 37:end){
 }
 
 
+################### code quartely ############################
 
 
