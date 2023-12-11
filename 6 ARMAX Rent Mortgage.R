@@ -140,7 +140,7 @@ for (i in 13:end){
     end_year <- end(temporary)[1]
     end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
-    fit <- arima(temporary, order = c(2,0,3), xreg = temporary_m)
+    fit <- arima(temporary, order = c(1,0,1), xreg = temporary_m)
     fit_m <- arima(temporary_m, order = c(2,0,1))
     forecast_fit <- forecast(fit_m, h = 12)
     #forecast the i-th observation

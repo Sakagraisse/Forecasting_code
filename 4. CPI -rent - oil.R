@@ -103,12 +103,12 @@ acf(CPIs$Inflation.withoutRI_log, lag.max = 20, plot = TRUE)
 
 #fit the correpsonding ARIMA(2,0,0) model
 fit2 <- arima(CPIs$Inflation.withoutRI_log, order = c(3,0,0), method = "ML")
-
+tosee <-  forecast(fit2, h = 36)
 
 
 # export graph
-png(file = paste(getwd(), "/Graphs/double minus/test.png", sep=""))
-plot(tosee,type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
+pdf(paste(getwd(), "/Graphs/double minus/test.pdf", sep=""))
+plot(tosee,type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "CPIs YoY without rent and without petroleum products")
 dev.off()
 
 #check the residuals
@@ -124,7 +124,11 @@ in_sample_residuals <- fit2$residuals
 in_sample_RMSE <- sqrt(mean(in_sample_residuals^2))
 #calculate the in sample MAE
 in_sample_MAE <- mean(abs(in_sample_residuals))
-ADF
+
+
+
+
+
 
 ######
 # Out of sample tests comparative

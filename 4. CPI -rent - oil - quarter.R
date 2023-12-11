@@ -103,14 +103,14 @@ acf(CPIs$Inflation.withoutRI_log, lag.max = 20, plot = TRUE)
 
 #fit the correpsonding ARIMA(2,0,0) model
 to_fit <- ts(CPIs$Inflation.withoutRI_log, start = c(2000,1), frequency = 12)
-fit2 <- arima(to_fit, order = c(2,1,0), method = "ML")
+fit2 <- arima(to_fit, order = c(3,0,0), method = "ML")
 tosee <- forecast(fit2, h = 36)
 plot(tosee)
 
 
 # export graph
-png(file = paste(getwd(), "/Graphs/double minus/test.png", sep=""))
-plot(tosee,type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
+pdf(paste(getwd(), "/Graphs/double minus/test.pdf", sep=""))
+plot(tosee,type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "CPIs YoY without rent and without petroleum products")
 dev.off()
 
 #check the residuals
@@ -154,8 +154,8 @@ end <- nrow(CPIs)
 end <- end - 36
 #convert to quarterly data
 Inflation.withoutRI_log_q <- aggregate(Inflation.withoutRI_log, nfrequency = 4, FUN = mean)
-#png(file = paste(getwd(), "/Graphs/double minus/spag.png", sep=""))
-plot(Inflation.withoutRI_log_q)
+pdf(paste(getwd(), "/Graphs/double minus/spag.pdf", sep=""))
+plot(Inflation.withoutRI_log_q, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
 
 #iterate from line 36 to the en of CPIs
 for (i in 37:end){
@@ -179,7 +179,7 @@ for (i in 37:end){
     mean_of_fit <- data.frame(mean_of_fit, fore)
 
 }
-#dev.off()
+
 #remove first column
 Squared <- out_of_sample[,-1]
 MSFE_by_time <- colMeans(Squared[1,] , na.rm = TRUE)
@@ -212,7 +212,7 @@ for (i in 37:end_b){
     fore <- forecast(fit, h = 36)
     print <- ts(fore$mean, start = c(end_year, end_month + 1 ), frequency = 12)
     if (i %in% seq(from = 1, to=end, by=10)){
-        lines(print, col="yellow")
+        lines(print, col="green")
     }
     #calculate the out of sample forecast
     to_save <- (as.numeric(fore$mean) - Inflation.withoutRI_log[i:i+36])^2
@@ -220,7 +220,7 @@ for (i in 37:end_b){
     mean_of_fit_b <- data.frame(mean_of_fit_b, fore$mean)
 
 }
-
+dev.off()
 #Create MSFE by Time
 Squared_b <- out_of_sample_b[,-1]
 
