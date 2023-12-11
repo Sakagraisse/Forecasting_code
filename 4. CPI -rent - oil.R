@@ -208,7 +208,7 @@ for (i in 37:end_b){
     #forecast the i-th observation
     fore <- forecast(fit, h = 36)
     print <- ts(fore$mean, start = c(end_year, end_month + 1 ), frequency = 12)
-    if (i %in% seq(from = 1, to=end, by=10)){
+    if (i %in% seq(from = 1, to=end_b, by=10)){
         lines(print, col="yellow")
     }
     #calculate the out of sample forecast
