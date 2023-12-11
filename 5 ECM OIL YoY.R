@@ -310,7 +310,39 @@ plot(MSFE_pred_by_time, type = "l", col = "red", xlab = "Time", ylab = "MSFE", m
 
 
 
+######
+# 7 in sample
+######
 
+#generate and store for ECM
+tyolo <- ECM_Data
+rownames(tyolo) <- NULL
+test <- create_data_forecast(tyolo, nrow(ECM_Data),36)
+#remove the last 36 rows
+test <- test[1:285,]
+test$long_term_correction_pred <- test$Petroleum.products_lag1 - coeff$lm1_1 -coeff$lm1_2* test$B20_lag1
+test$Petroleum.products_delta_pred <- coeff$lm2_1  + coeff$lm2_3 * test$long_term_correction_pred
+test$Petroleum.products_pred <- test$Petroleum.products_lag1 + test$Petroleum.products_delta_pred
+
+residuals <- test$Petroleum.products - test$Petroleum.products_pred
+plot(residuals, type = "l", col = "red")
+
+plot(test$Petroleum.products, type = "l", col = "red")
+lines(test$Petroleum.products_pred, type = "l", col = "blue")
+
+
+residuals <- residuals[2:nrow(test)]
+# Ljung Box-Q Test
+Ljung <- Box.test(residuals, lag = 10, type = "Ljung-Box", fitdf = 3)
+# White Test
+Pierce <- Box.test(residuals, lag = 10, type = "Box-Pierce", fitdf = 3)
+# jarque bera test
+Jarques <- jarque.bera.test(residuals)
+# White Test
+#White <- white_test(fit2)
+
+in_sample_tests <- data.frame(Ljung$p.value, Jarques$p.value,Pierce$p.value)
+rm(Ljung, Pierce, Jarques)
 
 
 

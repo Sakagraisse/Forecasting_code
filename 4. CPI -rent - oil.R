@@ -124,20 +124,7 @@ in_sample_residuals <- fit2$residuals
 in_sample_RMSE <- sqrt(mean(in_sample_residuals^2))
 #calculate the in sample MAE
 in_sample_MAE <- mean(abs(in_sample_residuals))
-
-base_stat <- data.frame(in_sample_RMSE, in_sample_MAE)
-rm(in_sample_MAE, in_sample_RMSE)
-# Ljung Box-Q Test
-Ljung <- Box.test(in_sample_residuals, lag = 10, type = "Ljung-Box", fitdf = 3)
-# White Test
-Pierce <- Box.test(in_sample_residuals, lag = 10, type = "Box-Pierce", fitdf = 3)
-# jarque bera test
-Jarques <- jarque.bera.test(in_sample_residuals)
-# White Test
-White <- white_test(fit2)
-
-in_sample_tests <- data.frame(Ljung$p.value, White$p_value, Jarques$p.value,Pierce$p.value)
-rm(Ljung, Pierce, Jarques, White)
+ADF
 
 ######
 # Out of sample tests comparative
