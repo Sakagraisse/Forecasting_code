@@ -148,15 +148,16 @@ rm(Ljung, Pierce, Jarques, White)
 ### out of sample forecast for our model
 
 Inflation.withoutRI_log <- ts(CPIs$Inflation.withoutRI_log,start = c(2000,1), frequency = 12)
-out_of_sample <- data.frame(matrix(ncol = 1, nrow = 12))
-mean_of_fit <- data.frame(matrix(ncol = 1, nrow = 12))
+out_of_sample <- data.frame(matrix(ncol = 1, nrow = 36))
+mean_of_fit <- data.frame(matrix(ncol = 1, nrow = 36))
 end <- nrow(CPIs)
 end <- end - 36
-#convert to quarterly data
-Inflation.withoutRI_log_q <- aggregate(Inflation.withoutRI_log, nfrequency = 4, FUN = mean)
 pdf(paste(getwd(), "/Graphs/double minus/spag.pdf", sep=""))
-plot(Inflation.withoutRI_log_q, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
-
+plot(Inflation.withoutRI_log, type = "l", col = "blue", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
+legend("topright",           # Position of the legend
+       legend = c("ARIMA(3,0,0)", "ARIMA(1,0,0)"),  # Legend labels
+       col = c("Blue", "Green"),       # Colors
+       lty = 1)                      # Line types
 #iterate from line 36 to the en of CPIs
 for (i in 37:end){
     temporary <- Inflation.withoutRI_log[1:i-1]
@@ -165,20 +166,24 @@ for (i in 37:end){
     end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
     fit <- arima(temporary, order = c(3,0,0))
-
     #forecast the i-th observation
     fore <- forecast(fit, h = 36)
-    print <- ts(fore$mean, start = c(end_year, end_month + 1 ), frequency = 12)
-    print <- aggregate(print, nfrequency = 4, FUN = mean)
+    print <- temporary[i-1]
+    print <- c(print, fore$mean)
+    print <- as.data.frame(print)
+    totototo <- fore$mean
+    print <- ts(print, start = c(end_year, end_month), frequency = 12)
+    #print <- aggregate(print, nfrequency = 4, FUN = mean)
     if (i %in% seq(from = 1, to=end, by=10)){
         lines(print, col="red")
     }
     #calculate the out of sample forecast
-    to_save <- (print - Inflation.withoutRI_log_q[i:i+12])^2
+    to_save <- (totototo - Inflation.withoutRI_log[i:i+36])^2
     out_of_sample <- data.frame(out_of_sample, to_save)
     mean_of_fit <- data.frame(mean_of_fit, fore)
 
 }
+
 
 #remove first column
 Squared <- out_of_sample[,-1]
@@ -207,10 +212,12 @@ for (i in 37:end_b){
     end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
     fit <- arima(temporary, order = c(1,0,1), method = "ML")
-
-    #forecast the i-th observation
     fore <- forecast(fit, h = 36)
-    print <- ts(fore$mean, start = c(end_year, end_month + 1 ), frequency = 12)
+    print <- temporary[i-1]
+    print <- c(print, fore$mean)
+    print <- as.data.frame(print)
+    totototo <- fore$mean
+    print <- ts(print, start = c(end_year, end_month), frequency = 12)
     if (i %in% seq(from = 1, to=end, by=10)){
         lines(print, col="green")
     }
@@ -234,6 +241,12 @@ rm(end_b, end_month, end_year, fore, i, mean_of_fit_b, out_of_sample_b, print, t
 
 MSFE_pred_by_time <- 1 - (MSFE_Total/MSFE_Total_b)
 MSFE_pred <- 1 - (MSFE_Total[36]/MSFE_Total_b[36])
+
+
+pdf(paste(getwd(), "/Graphs/double minus/predictive_r_double_minus.pdf", sep=""), width = 13, height = 5)
+barplot(MSFE_pred_by_time,names.arg = 1:36,main = "Predictive R_Squared by period" )
+dev.off()
+
 
 plot(MSFE_pred_by_time, type = "l", col = "red", xlab = "Time", ylab = "MSFE", main = "MSFE by time")
 
