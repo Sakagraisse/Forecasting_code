@@ -44,7 +44,7 @@ dataw <- read_excel("wieght_data.xlsx", sheet = 1, col_names = TRUE)
 #CPIs <- CPIs_trunk
 #rm(CPIs_trunk)
 CPIs$Inf_OIL <- log(CPIs$`Petroleum.products`/lag(CPIs$`Petroleum.products`,12))
-CPIs$Inf_Rent <- log(CPIs$`Housing.rental.1`/lag(CPIs$`Housing.rental.1`,15))
+CPIs$Inf_Rent <- log(CPIs$`Housing.rental.1`/lag(CPIs$`Housing.rental.1`,12))
 CPIs$Inf_Total <- log(CPIs$Total/lag(CPIs$Total,12))
 dataw <- dataw[,c(1:6)]
 #create a repetition of each line 12 times
@@ -102,8 +102,10 @@ acf(CPIs$Inflation.withoutRI_log, lag.max = 20, plot = TRUE)
 ## around 2
 
 #fit the correpsonding ARIMA(2,0,0) model
-fit2 <- arima(CPIs$Inflation.withoutRI_log, order = c(3,0,0), method = "ML")
-
+to_fit <- ts(CPIs$Inflation.withoutRI_log, start = c(2000,1), frequency = 12)
+fit2 <- arima(to_fit, order = c(2,1,0), method = "ML")
+tosee <- forecast(fit2, h = 36)
+plot(tosee)
 
 
 # export graph
@@ -146,13 +148,14 @@ rm(Ljung, Pierce, Jarques, White)
 ### out of sample forecast for our model
 
 Inflation.withoutRI_log <- ts(CPIs$Inflation.withoutRI_log,start = c(2000,1), frequency = 12)
-out_of_sample <- data.frame(matrix(ncol = 1, nrow = 36))
-mean_of_fit <- data.frame(matrix(ncol = 1, nrow = 36))
+out_of_sample <- data.frame(matrix(ncol = 1, nrow = 12))
+mean_of_fit <- data.frame(matrix(ncol = 1, nrow = 12))
 end <- nrow(CPIs)
 end <- end - 36
-
+#convert to quarterly data
+Inflation.withoutRI_log_q <- aggregate(Inflation.withoutRI_log, nfrequency = 4, FUN = mean)
 #png(file = paste(getwd(), "/Graphs/double minus/spag.png", sep=""))
-plot(Inflation.withoutRI_log)
+plot(Inflation.withoutRI_log_q)
 
 #iterate from line 36 to the en of CPIs
 for (i in 37:end){
@@ -166,14 +169,14 @@ for (i in 37:end){
     #forecast the i-th observation
     fore <- forecast(fit, h = 36)
     print <- ts(fore$mean, start = c(end_year, end_month + 1 ), frequency = 12)
+    print <- aggregate(print, nfrequency = 4, FUN = mean)
     if (i %in% seq(from = 1, to=end, by=10)){
         lines(print, col="red")
     }
-
     #calculate the out of sample forecast
-    to_save <- (as.numeric(fore$mean) - Inflation.withoutRI_log[i:i+36])^2
+    to_save <- (print - Inflation.withoutRI_log_q[i:i+12])^2
     out_of_sample <- data.frame(out_of_sample, to_save)
-    mean_of_fit <- data.frame(mean_of_fit, fore$mean)
+    mean_of_fit <- data.frame(mean_of_fit, fore)
 
 }
 #dev.off()
@@ -203,7 +206,7 @@ for (i in 37:end_b){
     end_year <- end(temporary)[1]
     end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
-    fit <- arima(temporary, order = c(1,0,0), method = "ML")
+    fit <- arima(temporary, order = c(1,0,1), method = "ML")
 
     #forecast the i-th observation
     fore <- forecast(fit, h = 36)
