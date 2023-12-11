@@ -85,9 +85,10 @@ plot(forecast_mortgage)
 plot(forecast_mortgage)
 
 #forecast CPIs$Rent using CPIs$Mortgage as exogenous variable
+pdf(paste(getwd(), "/Graphs/double minus/rent_forecast.pdf", sep=""))
 forecast_rent <- forecast(fit, xreg = forecast_mortgage$mean, h = 12)
-plot(forecast_rent)
-
+plot(forecast_rent,type = "l", col = "red", xlab = "Year", ylab = "Rent Inflation", main = "CPIs Rent YoY forecast")
+dev.off()
 
 ######
 # In sample tests
@@ -129,8 +130,13 @@ out_of_sample <- data.frame(matrix(ncol = 1, nrow = 12))
 mean_of_fit <- data.frame(matrix(ncol = 1, nrow = 12))
 end <- length(the_Rent)
 end <- end - 12
-plot(the_Rent)
+pdf(paste(getwd(), "/Graphs/double minus/rent_spag.pdf", sep=""))
+plot(the_Rent, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph Rent YoY")
 
+legend("bottomright",           # Position of the legend
+       legend = c("ARMAX", "ARIMA(1,0,0)"),  # Legend labels
+       col = c("Blue", "Green"),       # Colors
+       lty = 1)                      # Line types
 #iterate from line 36 to the en of CPIs
 for (i in 13:end){
     temporary <- the_Rent[1:i-1]
@@ -145,8 +151,11 @@ for (i in 13:end){
     forecast_fit <- forecast(fit_m, h = 12)
     #forecast the i-th observation
     fore <- predict(fit, newxreg=forecast_fit$mean, h = 12)
-    print <- ts(fore$pred, start = c(end_year, end_month + 1 ), frequency = 4)
-    lines(print, col="red")
+    print <- temporary[i-1]
+    print <- c(print, fore$pred)
+    print <- as.data.frame(print)
+    print <- ts(print, start = c(end_year, end_month), frequency = 4)
+    lines(print, col="blue")
     #calculate the out of sample forecast
     to_save <- (as.numeric(fore$pred) - the_Mort[i:i+12])^2
     out_of_sample <- data.frame(out_of_sample, to_save)
@@ -173,7 +182,7 @@ out_of_sample_b <- data.frame(matrix(ncol = 1, nrow = 12))
 mean_of_fit_b <- data.frame(matrix(ncol = 1, nrow = 12))
 end_b <- length(the_Rent_b)
 end_b <- end_b - 12
-plot(the_Rent_b)
+
 
 #iterate from line 36 to the en of CPIs
 for (i in 13:end_b){
@@ -189,8 +198,11 @@ for (i in 13:end_b){
     forecast_fit <- forecast(fit_m, h = 12)
     #forecast the i-th observation
     fore <- predict(fit, newxreg=forecast_fit$mean, h = 12)
-    print <- ts(fore$pred, start = c(end_year, end_month + 1 ), frequency = 4)
-    lines(print, col="red")
+    print <- temporary[i-1]
+    print <- c(print, fore$pred)
+    print <- as.data.frame(print)
+    print <- ts(print, start = c(end_year, end_month), frequency = 4)
+    lines(print, col="green")
     #calculate the out of sample forecast
     to_save_b <- (as.numeric(fore$pred) - the_Mort[i:i+12])^2
     out_of_sample_b <- data.frame(out_of_sample_b, to_save_b)
@@ -198,7 +210,7 @@ for (i in 13:end_b){
 
 }
 
-#dev.off()
+dev.off()
 #remove first column
 Squared_b <- out_of_sample_b[,-1]
 MSFE_by_time_b <- colMeans(Squared_b[1,] , na.rm = TRUE)
@@ -225,3 +237,12 @@ MSFE_pred_by_time <- 1 - (MSFE_Total/MSFE_Total_b)
 MSFE_pred <- 1 - (MSFE_Total[36]/MSFE_Total_b[36])
 
 plot(MSFE_pred_by_time, type = "l", col = "red", xlab = "Time", ylab = "MSFE", main = "MSFE by time")
+
+
+pdf(paste(getwd(), "/Graphs/double minus/predictive_rent.pdf", sep=""), width = 13, height = 5)
+
+
+barplot(MSFE_pred_by_time,names.arg = 1:36,main = "Predictive R_Squared by period ARMAX" )
+
+
+dev.off()

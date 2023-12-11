@@ -208,8 +208,24 @@ italian_dish <- function(end, data,steps_ahead, step,results_coeff){
     }
 }
 
+
+
 test <- create_data_forecast(ECM_Data, nrow(ECM_Data),36)
 test <- forecast_ECM(test, nrow(ECM_Data),36,coeff)
+
+#plot prediction
+plot_main <- ts(test$Petroleum.products, start = c(2000,1), frequency = 12)
+len <- length(test$Petroleum.products) - 36
+plot_second <- ts(test$Petroleum.products[1:len], start = c(2000,1), frequency = 12)
+
+pdf(paste(getwd(), "/Graphs/double minus/ECM_forecast.pdf", sep=""))
+plot(plot_main, type = "l", col = "blue", xlab = "Year", ylab = "Inflation", main = "CPIs YoY ECM forecast")
+lines(plot_second, type = "l", col = "red")
+dev.off()
+
+
+
+
 plot(test$Petroleum.products_delta, type = "l", col = "blue")
 lines(ECM_Data$Petroleum.products_delta, type = "l", col = "red")
 test2 <- create_data_forecast(ECM_Data, 222,36)
@@ -218,11 +234,58 @@ plot(test$Petroleum.products, type = "l", col = "blue")
 plot(test$B20, type = "l", col = "blue")
 
 Petro_plot <- ts(ECM_Data$Petroleum.products, start = c(2000,1), frequency = 12)
-plot(Petro_plot, type = "l", col = "red")
+
+pdf(paste(getwd(), "/Graphs/double minus/spag_ECM.pdf", sep=""))
+plot(Petro_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
+legend("bottomright",           # Position of the legend
+       legend = c("ECM", "ARIMA(1,0,0)"),  # Legend labels
+       col = c("Blue", "Green"),       # Colors
+       lty = 1)
 # Example usage: Forecasting 36
+
 italian_dish(nrow(ECM_Data),ECM_Data,36,12,coeff)
 lines(Petro_plot, type = "l", lwd = 2 ,col = "red")
 
+
+
+
+### compare with ar1 model
+
+### out of sample forecast for benchmark model
+
+Petroleo <- ts(ECM_Data$Petroleum.products,start = c(2000,1), frequency = 12)
+out_of_sample_b <- data.frame(matrix(ncol = 1, nrow = 36))
+mean_of_fit_b <- data.frame(matrix(ncol = 1, nrow = 36))
+end_b <- nrow(ECM_Data)
+end_b <- end_b - 36
+#plot(Petroleo , type = "l", col = "red")
+
+#iterate from line 36 to the en of CPIs
+for (i in 37:end_b){
+    temporary <- Petroleo[1:i-1]
+    temporary <- ts(temporary, start = c(2000,1), frequency = 12)
+    end_year <- end(temporary)[1]
+    end_month <- end(temporary)[2]
+    #fit arima model on the first i-1 observations
+    fit <- arima(temporary, order = c(1,0,0), method = "ML")
+
+    #forecast the i-th observation
+    fore <- forecast(fit, h = 36)
+    print <- temporary[i-1]
+    print <- c(print, fore$mean)
+    print <- as.data.frame(print)
+    totototo <- fore$mean
+    print <- ts(print, start = c(end_year, end_month), frequency = 12)
+   if (i %in% seq(from = 1, to=end_b, by=10)){
+        lines(print, col="green")
+    }
+    #calculate the out of sample forecast
+    to_save <- (as.numeric(fore$mean) - Petroleo[i:i+36])^2
+    out_of_sample_b <- data.frame(out_of_sample_b, to_save)
+    mean_of_fit_b <- data.frame(mean_of_fit_b, fore$mean)
+
+}
+dev.off()
 ######
 # 6 assess the model
 ######
@@ -257,39 +320,6 @@ MSFE_Total <- rowMeans(MSFE_by_time, na.rm = TRUE)
 
 
 
-### compare with ar1 model
-
-### out of sample forecast for benchmark model
-
-Petroleo <- ts(ECM_Data$Petroleum.products,start = c(2000,1), frequency = 12)
-out_of_sample_b <- data.frame(matrix(ncol = 1, nrow = 36))
-mean_of_fit_b <- data.frame(matrix(ncol = 1, nrow = 36))
-end_b <- nrow(ECM_Data)
-end_b <- end_b - 36
-plot(Petroleo , type = "l", col = "red")
-
-#iterate from line 36 to the en of CPIs
-for (i in 37:end_b){
-    temporary <- Petroleo[1:i-1]
-    temporary <- ts(temporary, start = c(2000,1), frequency = 12)
-    end_year <- end(temporary)[1]
-    end_month <- end(temporary)[2]
-    #fit arima model on the first i-1 observations
-    fit <- arima(temporary, order = c(1,0,0), method = "ML")
-
-    #forecast the i-th observation
-    fore <- forecast(fit, h = 36)
-    print <- ts(fore$mean, start = c(end_year, end_month + 1 ), frequency = 12)
-    if (i %in% seq(from = 1, to=end_b, by=10)){
-        lines(print, col="yellow")
-    }
-    #calculate the out of sample forecast
-    to_save <- (as.numeric(fore$mean) - Petroleo[i:i+36])^2
-    out_of_sample_b <- data.frame(out_of_sample_b, to_save)
-    mean_of_fit_b <- data.frame(mean_of_fit_b, fore$mean)
-
-}
-
 #Create MSFE by Time
 Squared_b <- out_of_sample_b[,-1]
 
@@ -306,7 +336,11 @@ MSFE_pred <- 1 - (MSFE_Total[36]/MSFE_Total_b[36])
 
 plot(MSFE_pred_by_time, type = "l", col = "red", xlab = "Time", ylab = "MSFE", main = "MSFE by time")
 
+pdf(paste(getwd(), "/Graphs/double minus/predictive_r_ECM.pdf", sep=""), width = 13, height = 5)
 
+barplot(MSFE_pred_by_time,names.arg = 1:36,main = "Predictive R_Squared by period" )
+
+dev.off()
 
 
 
@@ -344,5 +378,5 @@ Jarques <- jarque.bera.test(residuals)
 in_sample_tests <- data.frame(Ljung$p.value, Jarques$p.value,Pierce$p.value)
 rm(Ljung, Pierce, Jarques)
 
-
+hist(residuals, breaks = 50, col = "red", main = "Histogram of residuals")
 
