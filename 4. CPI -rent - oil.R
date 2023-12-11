@@ -76,14 +76,10 @@ plot(forecast)
 # In sample tests
 ######
 
-#calculate the in sample forecast
-in_sample_forecast <- fitted(fit2)
 #calculate the in sample residuals
 in_sample_residuals <- residuals(fit2)
 #calculate the in sample RMSE
 in_sample_RMSE <- sqrt(mean(in_sample_residuals^2))
-#calculate the in sample MAPE
-in_sample_MAPE <- mean(abs(in_sample_residuals/in_sample_forecast))
 #calculate the in sample MAE
 in_sample_MAE <- mean(abs(in_sample_residuals))
 
@@ -91,12 +87,12 @@ in_sample_MAE <- mean(abs(in_sample_residuals))
 Ljung <- Box.test(in_sample_residuals, lag = 20, type = "Ljung-Box")
 # White Test
 White <- Box.test(in_sample_residuals^2, lag = 20, type = "Ljung-Box")
-#Jarque Bera Test
-JB <- jarque.bera.test(in_sample_residuals)
 
 ######
-# Out of sample tests
+# Out of sample tests comparative
 ######
+
+### out of sample forecast for our model
 
 Inflation.withoutRI_log <- ts(CPIs$Inflation.withoutRI_log,start = c(1984,1), frequency = 12)
 out_of_sample <- data.frame(matrix(ncol = 1, nrow = 36))
@@ -116,63 +112,83 @@ for (i in 37:end){
 
     #forecast the i-th observation
     fore <- forecast(fit, h = 36)
-    fore <- fore$mean
-    print <- ts(fore, start = c(end_year, end_month + 1 ), frequency = 12)
+    print <- ts(fore$mean, start = c(end_year, end_month + 1 ), frequency = 12)
     lines(print, col="red")
-    fore <- as.numeric(fore)
-    #calculate the out of sample residuals squared
-    out_of_sample_residuals <- (Inflation.withoutRI_log[i:i+36] - as.data.frame(fore))^2
-    #out_of_sample_residuals <- as.numeric(out_of_sample_residuals)
-    #store mean
-    meat_of_fit <- data.frame(mean_of_fit, fore)
     #calculate the out of sample forecast
-    out_of_sample <- data.frame(out_of_sample, out_of_sample_residuals)
+    to_save <- (fore$mean - Inflation.withoutRI_log[i:i+36])^2
+    out_of_sample <- data.frame(out_of_sample, to_save)
+    mean_of_fit <- data.frame(mean_of_fit, fore$mean)
 
 }
 
+#Create MSFE by Time
+Squared <- out_of_sample
+MSFE_by_time <- colMeans(Squared[1,] , na.rm = TRUE)
+for (i in 2:36){
+    MSFE_by_time <- rbind(MSFE_by_time, colMeans(Squared[1:i,] , na.rm = TRUE))
+}
+MSFE_Total <- rowMeans(MSFE_by_time, na.rm = TRUE)
 
-#drop column one od out_of_sample
-Squared <- out_of_sample[,-1]
-#keep last column of squared
-Squared_last <- Squared[,405]
-MSFE <- mean(Squared_last)
+rm(end, end_month, end_year, fore, i, mean_of_fit, out_of_sample, print, temporary, to_save)
+### out of sample forecast for benchmark model
 
-# do the mean of each row of  out_of_sample
-end <- length(CPIs$Inflation.withoutRI_log)-36
-Inf_test <- ts(CPIs$Inflation.withoutRI_log[1:end], start = c(1984,1), frequency = 12)
+Inflation.withoutRI_log <- ts(CPIs$Inflation.withoutRI_log,start = c(1984,1), frequency = 12)
+out_of_sample_b <- data.frame(matrix(ncol = 1, nrow = 36))
+mean_of_fit_b <- data.frame(matrix(ncol = 1, nrow = 36))
+end_b <- nrow(CPIs)
+end_b <- end_b - 36
+plot(Inflation.withoutRI_log)
 
-fit_AR1 <- arima(Inf_test, order = c(1,0,0), method = "ML")
-forecast_ar1 <- forecast(fit_AR1, h = 36)
-Error_ar <- forecast_ar1$mean - CPIs$Inflation.withoutRI_log[end:end+35]
-E_squared_ar <- Error_ar^2
-MSFE_ar <- mean(E_squared_ar[1:35])
+#iterate from line 36 to the en of CPIs
+for (i in 37:end_b){
+    temporary <- Inflation.withoutRI_log[1:i-1]
+    temporary <- ts(temporary, start = c(1984,1), frequency = 12)
+    end_year <- end(temporary)[1]
+    end_month <- end(temporary)[2]
+    #fit arima model on the first i-1 observations
+    fit <- arima(temporary, order = c(1,0,0), method = "ML")
 
+    #forecast the i-th observation
+    fore <- forecast(fit, h = 36)
+    print <- ts(fore$mean, start = c(end_year, end_month + 1 ), frequency = 12)
+    lines(print, col="red")
+    #calculate the out of sample forecast
+    to_save <- (fore$mean - Inflation.withoutRI_log[i:i+36])^2
+    out_of_sample_b <- data.frame(out_of_sample_b, to_save)
+    mean_of_fit_b <- data.frame(mean_of_fit_b, fore$mean)
 
-MSFE_Predictive <- 1 - (MSFE/MSFE_ar)
+}
 
-#Create empty column of 36
-MSFE_Predictive_BY <- 1- (Squared_last / E_squared_ar)
-plot(MSFE_Predictive_BY, type = "l", col = "blue")
+#Create MSFE by Time
+Squared_b <- out_of_sample_b
+MSFE_by_time_b <- colMeans(Squared_b[1,] , na.rm = TRUE)
+for (i in 2:36){
+    MSFE_by_time_b <- rbind(MSFE_by_time_b, colMeans(Squared[1:i,] , na.rm = TRUE))
+}
+MSFE_Total_b <- rowMeans(MSFE_by_time_b, na.rm = TRUE)
+
+rm(end_b, end_month, end_year, fore, i, mean_of_fit_b, out_of_sample_b, print, temporary, to_save)
+MSFE_pred_by_time <- 1 - (MSFE_by_time/MSFE_by_time_b)
+MSFE_pred <- 1 - (MSFE_Total[36]/MSFE_Total_b[36])
+
+######
+# Out of sample tests Diebold
+######
 
 
 #Dieblod Mariano test
-Diebold <- rep(1, times = 36)
-for(u in 2:36){
-    tempo1 <- head(Squared_last,u)
-    tempo2 <- head(E_squared_ar,u)
-    gruik <- dm.test(tempo1 , tempo2, h = u, power = 2,varestimator = "bartlett")
-    Diebold[i] <- 2
-      #gruik2$statistic
+num_rows <- nrow(MSFE_by_time)
+num_cols <- ncol(MSFE_by_time_b)
+Diebold <- as.data.frame(matrix(ncol = num_cols, nrow = num_rows))
+names(Diebold) <- names(MSFE_by_time)
+
+for(u in 2:num_cols){
+    for(t in 2:num_rows){
+        Diebold[t,u] <- dm.test(MSFE_by_time[1:t,u] , MSFE_by_time_b[1:t,u], alternative = "two.sided", h = t, power = 2,varestimator = "bartlett")
+    }
 }
-gruik2 <- dm.test(Squared_last[1] , E_squared_ar[1], alternative = "two.sided", h = 1, power = 2,varestimator = "bartlett")
-gruik2 <- gruik[1]
 
-plot(Diebold, col = "blue")
-
-Diebold[1] <- as.numeric(gruik2[1])
-gruik2$statistic
-Squared_last[1:6]
-
+rm(num_cols, num_rows, t, u)
 
 
 
