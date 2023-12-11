@@ -35,9 +35,9 @@ load("CPIs.RData")
 dataw <- read_excel("wieght_data.xlsx", sheet = 1, col_names = TRUE)
 #CPIs <- CPIs_trunk
 #rm(CPIs_trunk)
-CPIs$Inf_OIL <- log(CPIs$`Petroleum.products`/lag(CPIs$`Petroleum.products`,1))
-CPIs$Inf_Rent <- log(CPIs$`Housing.rental.1`/lag(CPIs$`Housing.rental.1`,3))
-CPIs$Inf_Total <- log(CPIs$Total/lag(CPIs$Total,1))
+CPIs$Inf_OIL <- log(CPIs$`Petroleum.products`/lag(CPIs$`Petroleum.products`,12))
+CPIs$Inf_Rent <- log(CPIs$`Housing.rental.1`/lag(CPIs$`Housing.rental.1`,15))
+CPIs$Inf_Total <- log(CPIs$Total/lag(CPIs$Total,12))
 length(CPIs)
 length(dataw)
 dataw <- dataw[,c(1:6)]
