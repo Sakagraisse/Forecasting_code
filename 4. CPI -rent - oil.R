@@ -152,6 +152,8 @@ out_of_sample <- data.frame(matrix(ncol = 1, nrow = 36))
 mean_of_fit <- data.frame(matrix(ncol = 1, nrow = 36))
 end <- nrow(CPIs)
 end <- end - 36
+
+#png(file = paste(getwd(), "/Graphs/double minus/spag.png", sep=""))
 plot(Inflation.withoutRI_log)
 
 #iterate from line 36 to the en of CPIs
@@ -166,24 +168,27 @@ for (i in 37:end){
     #forecast the i-th observation
     fore <- forecast(fit, h = 36)
     print <- ts(fore$mean, start = c(end_year, end_month + 1 ), frequency = 12)
-    #lines(print, col="red")
-    plot(forecast(fit, h = 36))
+    if (i %in% seq(from = 1, to=end, by=10)){
+        lines(print, col="red")
+    }
+
     #calculate the out of sample forecast
-    to_save <- (fore$mean - Inflation.withoutRI_log[i:i+36])^2
+    to_save <- (as.numeric(fore$mean) - Inflation.withoutRI_log[i:i+36])^2
     out_of_sample <- data.frame(out_of_sample, to_save)
     mean_of_fit <- data.frame(mean_of_fit, fore$mean)
 
 }
-
-#Create MSFE by Time
-Squared <- out_of_sample
+#dev.off()
+#remove first column
+Squared <- out_of_sample[,-1]
 MSFE_by_time <- colMeans(Squared[1,] , na.rm = TRUE)
 for (i in 2:36){
     MSFE_by_time <- rbind(MSFE_by_time, colMeans(Squared[1:i,] , na.rm = TRUE))
 }
 MSFE_Total <- rowMeans(MSFE_by_time, na.rm = TRUE)
+#rm(end, end_month, end_year, fore, i, mean_of_fit, out_of_sample, print, temporary, to_save)
 
-rm(end, end_month, end_year, fore, i, mean_of_fit, out_of_sample, print, temporary, to_save)
+
 ### out of sample forecast for benchmark model
 
 Inflation.withoutRI_log <- ts(CPIs$Inflation.withoutRI_log,start = c(1984,1), frequency = 12)
@@ -196,37 +201,41 @@ end_b <- end_b - 36
 #iterate from line 36 to the en of CPIs
 for (i in 37:end_b){
     temporary <- Inflation.withoutRI_log[1:i-1]
-    temporary <- ts(temporary, start = c(1984,1), frequency = 12)
+    temporary <- ts(temporary, start = c(2000,1), frequency = 12)
     end_year <- end(temporary)[1]
     end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
-    fit <- arima(temporary, order = c(1,0,0), method = "ML")
+    fit <- arima(temporary, order = c(1,0,1), method = "ML")
 
     #forecast the i-th observation
     fore <- forecast(fit, h = 36)
     print <- ts(fore$mean, start = c(end_year, end_month + 1 ), frequency = 12)
-    lines(print, col="yellow")
+    if (i %in% seq(from = 1, to=end, by=10)){
+        lines(print, col="yellow")
+    }
     #calculate the out of sample forecast
-    to_save <- (fore$mean - Inflation.withoutRI_log[i:i+36])^2
+    to_save <- (as.numeric(fore$mean) - Inflation.withoutRI_log[i:i+36])^2
     out_of_sample_b <- data.frame(out_of_sample_b, to_save)
     mean_of_fit_b <- data.frame(mean_of_fit_b, fore$mean)
 
 }
 
 #Create MSFE by Time
-Squared_b <- out_of_sample_b
+Squared_b <- out_of_sample_b[,-1]
+
 MSFE_by_time_b <- colMeans(Squared_b[1,] , na.rm = TRUE)
 for (i in 2:36){
-    MSFE_by_time_b <- rbind(MSFE_by_time_b, colMeans(Squared[1:i,] , na.rm = TRUE))
+    MSFE_by_time_b <- rbind(MSFE_by_time_b, colMeans(Squared_b[1:i,] , na.rm = TRUE))
 }
 MSFE_Total_b <- rowMeans(MSFE_by_time_b, na.rm = TRUE)
 
 rm(end_b, end_month, end_year, fore, i, mean_of_fit_b, out_of_sample_b, print, temporary, to_save)
-MSFE_pred_by_time <- 1 - (MSFE_by_time/MSFE_by_time_b)
+
+MSFE_pred_by_time <- 1 - (MSFE_Total/MSFE_Total_b)
 MSFE_pred <- 1 - (MSFE_Total[36]/MSFE_Total_b[36])
 
-plot(MSFE_by_time[,100], type = "l", col = "red", xlab = "Time", ylab = "MSFE", main = "MSFE by time")
-plot(MSFE_by_time_b[,100])
+plot(MSFE_pred_by_time, type = "l", col = "red", xlab = "Time", ylab = "MSFE", main = "MSFE by time")
+
 ######
 # Out of sample tests Diebold
 ######
