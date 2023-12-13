@@ -185,7 +185,7 @@ for (i in 37:end){
         lines(print, col="red")
     }
     #calculate the out of sample forecast
-    to_save <- (totototo - Inflation.withoutRI_log[i:i+36])^2
+    to_save <- (totototo - Inflation.withoutRI_log[i:i+36])
     out_of_sample <- data.frame(out_of_sample, to_save)
     mean_of_fit <- data.frame(mean_of_fit, fore)
 
@@ -193,13 +193,11 @@ for (i in 37:end){
 
 
 #remove first column
-Squared <- out_of_sample[,-1]
-MSFE_by_time <- colMeans(Squared[1,] , na.rm = TRUE)
-for (i in 2:36){
-    MSFE_by_time <- rbind(MSFE_by_time, colMeans(Squared[1:i,] , na.rm = TRUE))
-}
-MSFE_Total <- rowMeans(MSFE_by_time, na.rm = TRUE)
-#rm(end, end_month, end_year, fore, i, mean_of_fit, out_of_sample, print, temporary, to_save)
+Error <- out_of_sample[,-1]
+Error_mean_by_time <- rowMeans(Error, na.rm = TRUE)
+Squared <- Error_mean_by_time^2
+
+rm(end, end_month, end_year, fore, i, mean_of_fit, out_of_sample, print, temporary, to_save, Error_mean_by_time, Error)
 
 
 ### out of sample forecast for benchmark model
@@ -225,7 +223,7 @@ for (i in 37:end_b){
     print <- as.data.frame(print)
     totototo <- fore$mean
     print <- ts(print, start = c(end_year, end_month), frequency = 12)
-    if (i %in% seq(from = 1, to=end, by=10)){
+    if (i %in% seq(from = 1, to=end_b, by=10)){
         lines(print, col="green")
     }
     #calculate the out of sample forecast
@@ -235,31 +233,31 @@ for (i in 37:end_b){
 
 }
 dev.off()
-#Create MSFE by Time
-Squared_b <- out_of_sample_b[,-1]
 
-MSFE_by_time_b <- colMeans(Squared_b[1,] , na.rm = TRUE)
-for (i in 2:36){
-    MSFE_by_time_b <- rbind(MSFE_by_time_b, colMeans(Squared_b[1:i,] , na.rm = TRUE))
-}
-MSFE_Total_b <- rowMeans(MSFE_by_time_b, na.rm = TRUE)
+Error_b <- out_of_sample_b[,-1]
+Error_mean_by_time_b <- rowMeans(Error_b, na.rm = TRUE)
+Squared_b <- Error_mean_by_time_b^2
 
-rm(end_b, end_month, end_year, fore, i, mean_of_fit_b, out_of_sample_b, print, temporary, to_save)
+rm(end, end_month, end_year, fore, i, mean_of_fit, out_of_sample, print, temporary, to_save, Error_mean_by_time_b, Error_b)
 
-MSFE_pred_by_time <- 1 - (MSFE_Total/MSFE_Total_b)
-MSFE_pred <- 1 - (MSFE_Total[36]/MSFE_Total_b[36])
+MSFE_pred_by_time <- 1 - (Squared/Squared_b)
 
 
 pdf(paste(getwd(), "/Graphs/double minus/predictive_r_double_minus.pdf", sep=""), width = 13, height = 5)
+
 barplot(MSFE_pred_by_time,names.arg = 1:36,main = "Predictive R_Squared by period" )
+
 dev.off()
-
-
-plot(MSFE_pred_by_time, type = "l", col = "red", xlab = "Time", ylab = "MSFE", main = "MSFE by time")
 
 ######
 # Out of sample tests Diebold
 ######
+Diebold <- dm.test(Squared , Squared_b, alternative = "two.sided", h = 36, power = 1,varestimator = "bartlett")
+Diebold <- dm.test(Squared[1] , Squared_b[1], alternative = "two.sided", h = 1, power = 1,varestimator = "bartlett")
+
+
+dm.test(Squared , Squared_b, alternative = "two.sided", h = 36, power = 1,varestimator = "bartlett")
+
 
 
 #Dieblod Mariano test
@@ -277,7 +275,9 @@ for(u in 2:num_cols){
 rm(num_cols, num_rows, t, u)
 
 
-
+######
+# True inflation
+######
 
 
 
