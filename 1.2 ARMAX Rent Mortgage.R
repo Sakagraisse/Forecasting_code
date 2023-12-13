@@ -37,58 +37,41 @@ rm(Rent_fore_q)
 #
 #rename the columns
 colnames(CPIs) <- c( "Mortgage", "Rent", "Date")
-#change to numeric
-CPIs$Rent <- as.numeric(CPIs$Rent)
-CPIs$Mortgage <- as.numeric(CPIs$Mortgage)
+Rent <- ts(CPIs$Rent, start = c(2009,3), frequency = 4)
+Mortgage <- ts(CPIs$Mortgage, start = c(2009,3), frequency = 4)
 
-# #calculate the Ren and Mortgage.rate over the year inflation rate
-Rent <- log(CPIs$Rent/lag(CPIs$Rent,4))
-Mortgage <- log(CPIs$Mortgage/lag(CPIs$Mortgage,4))
-#Rent <- ts(CPIs$Rent, start = c(2008,9), frequency = )
-#Mortgage <- ts(CPIs$Mortgage, start = c(2008,9), frequency = 12)
-#plot the inflation rate
-#plot(Rent, type = "l", col = "red", xlab = "Year", ylab = "Inflation rate", main = "Inflation rate of rent")
-#plot(Mortgage, type = "l", col = "red", xlab = "Year", ylab = "Inflation rate", main = "Inflation rate of mortgage")
+plot(Rent, type = "l", col = "red", xlab = "Year", ylab = "Rent Inflation", main = "CPIs Rent YoY")
+plot(Mortgage, type = "l", col = "red", xlab = "Year", ylab = "Mortgage Inflation", main = "CPIs Mortgage YoY")
 
-length(Rent)
-length(Mortgage)
-Mortgage <- ts(Mortgage, start = c(2009,9), frequency = 4)
-Rent <- ts(Rent, start = c(2009,9), frequency = 4)
-Rent <- na.omit(Rent)
-Mortgage <- na.omit(Mortgage)
-Mortgage <- ts(Mortgage, start = c(2009,9), frequency = 4)
-Rent <- ts(Rent, start = c(2009,9), frequency = 4)
+fit <- auto.arima(Rent, stepwise=FALSE, seasonal = FALSE, approximation = FALSE, trace=TRUE, xreg = Mortgage)
+
+fit3 <- arima(Rent, order = c(3,1,0), xreg = Mortgage)
+fit4 <- auto.arima(Mortgage, stepwise=FALSE, seasonal = FALSE, approximation = FALSE, trace=TRUE)
+
+tati <- Arima(Rent, model=fit3, xreg=Mortgage)
+Mortgage2 <- forecast(fit4, h = 12)
+Mortgage2 <- as.numeric(Mortgage2$mean)
+test <- forecast(tati, xreg = Mortgage2)
+plot(test)
+
+Mortgage <- as.numeric(Mortgage2$mean)
+Mortgage <- ts(Mortgage, start = c(2023,4), frequency = 4)
+#rename the columns
+colnames(toto) <- c( "Mortgage")
+test <- forecast(fit3, Mortgage)
+plot(test)
 
 
-# Create the fourth lag of this difference
-Mortgage <- as.numeric(Mortgage)
-mortgage.rate.lag4 <- lag(Mortgage, 4)
 
-Mortgage <- ts(mortgage.rate.lag4, start = c(2009,9), frequency = 4)
- #Remove the NA values that come from lagging
-Mortgage <- na.omit(Mortgage)
-Mortgage <- ts(Mortgage, start = c(2010,9), frequency = 4)
-
-Rent <- as.numeric(Rent)
-Rent <- Rent[-c(1:4)]
-Rent <- ts(Rent, start = c(2010,9), frequency = 4)
-
-length(Rent)
-length(Mortgage)
-
-fit <- auto.arima(Rent, xreg = Mortgage, seasonal = FALSE, approximation = FALSE, trace=TRUE)
-
-fit2 <- auto.arima(Mortgage, seasonal = FALSE, approximation = FALSE, trace=TRUE)
-forecast_mortgage <- forecast(fit2, h = 12)
-plot(forecast_mortgage)
-#forecast_mortgage <- ts(forecast_mortgage$mean, start = c(2025,1), frequency = 4)
-plot(forecast_mortgage)
-
-#forecast CPIs$Rent using CPIs$Mortgage as exogenous variable
-pdf(paste(getwd(), "/Graphs/double minus/rent_forecast.pdf", sep=""))
-forecast_rent <- forecast(fit, xreg = forecast_mortgage$mean, h = 12)
 plot(forecast_rent,type = "l", col = "red", xlab = "Year", ylab = "Rent Inflation", main = "CPIs Rent YoY forecast")
-dev.off()
+difffff <- (diff(Rent))
+
+adf.test(difffff, alternative = "stationary", k = 1)
+
+forecast_rent <- forecast(fit, h = 12)
+fit_m <- auto.arima(Mortgage, stepwise=FALSE, seasonal = FALSE, approximation = FALSE, trace=TRUE)
+forecast_mortgage <- forecast(fit_m, h = 12)
+plot(forecast_mortgage,type = "l", col = "red", xlab = "Year", ylab = "Rent Inflation", main = "CPIs Rent YoY forecast")
 
 ######
 # In sample tests
@@ -114,6 +97,146 @@ White <- white_test(fit)
 
 in_sample_tests <- data.frame(Ljung$p.value, White$p_value, Jarques$p.value,Pierce$p.value)
 rm(Ljung, Pierce, Jarques, White)
+
+
+
+######
+# Out of sample tests comparative
+######
+
+### out of sample forecast for our model
+
+out_of_sample <- data.frame(matrix(ncol = 1, nrow = 4))
+mean_of_fit <- data.frame(matrix(ncol = 1, nrow = nrow(CPIs)))
+end <- nrow(CPIs)
+end <- end - 12
+# Line types
+#iterate from line 36 to the en of CPIs
+for (i in 30:end+1){
+    temporary <- Rent[1:i-1]
+    temporary <- ts(temporary, start = c(2009,4), frequency = 4)
+    temporary_m <- Mortgage[1:i-1]
+    temporary_m <- ts(temporary_m, start = c(2009,4), frequency = 4)
+    end_year <- end(temporary)[1]
+    end_month <- end(temporary)[2]
+    #fit arima model on the first i-1 observations
+    fit <- arima(temporary, order = c(3,1,0), xreg = temporary_m)
+    model <- Arima(temporary, model=fit, xreg=temporary_m)
+    fit_m <- arima(temporary_m, order = c(0,2,1))
+    fore_m <- forecast(fit_m, h = 12)
+    #forecast the i-th observation
+    fore <- forecast(model, xreg = fore_m$mean, h = 12)
+    #save the mean of the fit
+    to_save <- c(temporary, fore$mean, rep(NA, end - i + 1))
+    mean_of_fit <- data.frame(mean_of_fit, to_save)
+    #save the error
+    to_save_2 <- (fore$mean - Rent[i:i+12])
+    out_of_sample <- data.frame(out_of_sample, as.numeric(to_save_2))
+}
+Error <- out_of_sample[,-1]
+Error_mean_by_time <- rowMeans(Error, na.rm = TRUE)
+Squared <- Error_mean_by_time^2
+rm(end, end_month, end_year, fore, i, temporary, to_save, to_save_2, Error_mean_by_time)
+
+
+### out of sample forecast for our model
+
+out_of_sample_b <- data.frame(matrix(ncol = 1, nrow = 12))
+mean_of_fit_b <- data.frame(matrix(ncol = 1, nrow = nrow(CPIs)))
+end_b <- nrow(CPIs)
+end_b <- end_b - 12
+# Line types
+#iterate from line 36 to the en of CPIs
+for (i in 30:end_b+1){
+    temporary <- Rent[1:i-1]
+    temporary <- ts(temporary, start = c(2009,3), frequency = 4)
+    end_year <- end(temporary)[1]
+    end_month <- end(temporary)[2]
+    #fit arima model on the first i-1 observations
+    fit <- arima(temporary, order = c(1,1,0))
+    fore <- forecast(fit, h = 12)
+    #save the mean of the fit
+    to_save <- c(temporary, fore$mean, rep(NA, end_b - i + 1))
+    mean_of_fit_b <- data.frame(mean_of_fit_b, to_save)
+    #save the error
+    to_save_2 <- (fore$mean - Rent[i:i+12])
+    out_of_sample_b <- data.frame(out_of_sample_b, as.numeric(to_save_2))
+}
+Error_b <- out_of_sample_b[,-1]
+Error_mean_by_time_b <- rowMeans(Error_b, na.rm = TRUE)
+Squared_b <- Error_mean_by_time_b^2
+
+rm(end_b, end_month, end_year, fore, i, temporary, to_save, to_save_2, Error_mean_by_time_b)
+
+
+
+MSFE_pred_by_time <- 1 - (Squared/Squared_b)
+
+
+pdf(paste(getwd(), "/Graphs/double minus/predictive_r_double_minus.pdf", sep=""), width = 13, height = 5)
+
+barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period" )
+
+dev.off()
+
+
+## plot spaghetti graph
+
+temp <- Rent[1:length(Rent)]
+cpi_ohne_diff <- log(temp /lag(temp ,4))
+cpi_ohne_diff <- cpi_ohne_diff[13:length(cpi_ohne_diff)]
+cpi_ohne_diff <- ts(cpi_ohne_diff, start = c(2009,4), frequency = 4)
+pdf(paste(getwd(), "/Graphs/double minus/spag.pdf", sep=""))
+dev.off()
+plot(cpi_ohne_diff, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
+legend("topleft",           # Position of the legend
+       legend = c("ARIMA(3,0,0)", "ARIMA(1,0,0)"),  # Legend labels
+       col = c("Blue", "Green"),       # Colors
+       lty = 1)
+
+#remove first column of mean_of_fit
+mean_of_fit <- mean_of_fit[,-1]
+mean_of_fit_b <- mean_of_fit_b[,-1]
+
+for (i in seq(from = 1, to = 19, by = 3)){
+        print <- mean_of_fit[,i]
+        print <- log(print /lag(print ,4))
+        print <- print[13:length(print)]
+        print <- ts(print, start = c(2009,4), frequency = 4)
+        print <- tail(print, 31 - i  + 1)
+        lines(print, col="blue")
+
+        print <- mean_of_fit_b[,i]
+        print <- log(print /lag(print ,4))
+        print <- print[13:length(print)]
+        print <- ts(print, start = c(2009,4), frequency = 4)
+        print <- tail(print, 31 - i  + 1)
+        lines(print, col="green")
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

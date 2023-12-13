@@ -40,32 +40,8 @@ current_directory <- getwd()
 ######
 
 #load data : CPIs.RData
-load("CPIs.RData")
+load("CPIs_double_minus.RData")
 
-######### weight data
-dataw <- read_excel("wieght_data.xlsx", sheet = 1, col_names = TRUE)
-CPIs$OIL <-CPIs$`Petroleum.products`
-CPIs$Rent <- CPIs$`Housing.rental.1`
-dataw <- dataw[,c(1:6)]
-
-# Repeat each row in your_data 12 times
-monthly_data <- dataw[rep(seq_len(nrow(dataw)), each = 12), ]
-monthly_data$Totalw_o_r <- monthly_data$Total - monthly_data$Oil - monthly_data$Rent
-# generate monthly date  and add it to the data
-monthly_data$Date <- seq(as.Date("2000/1/1"), by = "month", length.out = nrow(monthly_data))
-
-# have the same lenght for CPIs and weight
-CPIs <- CPIs[205:489,]
-monthly_data <- monthly_data[1:285,]
-monthly_data <- monthly_data[,-1]
-#renqme the columns
-names(monthly_data) <- c( "W_total", "W_housing", "W_oil", "W_totalw_o", "W_totalw_r", "Totalw_o_r", "Year")
-#remove first column
-monthly_data <- monthly_data[,-1]
-#merge the two data sets
-CPIs <- merge(monthly_data, CPIs, by = "Year")
-
-CPIs$our <- (CPIs$Total - CPIs$OIL*CPIs$W_oil/100 - CPIs$Rent*CPIs$W_housing/100)/CPIs$Totalw_o_r*100
 
 rm(dataw, monthly_data )
 
@@ -81,7 +57,7 @@ rm(cpi_total)
 #plot(CPIs$Year, CPIs$Inf_Total, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
 
 #auto arima fit CPIs$Inflation.withoutRI
-fit <- auto.arima(cpi_ohne, seasonal = FALSE, approximation = FALSE, trace=TRUE)
+fit <- auto.arima(cpi_ohne, seasonal = FALSE, approximation = FALSE, trace=TRUE, stepwise=FALSE)
 #check the residuals
 checkresiduals(fit)
 #plot the forecast
