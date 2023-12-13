@@ -1,5 +1,4 @@
-#clean space
-rm(list = ls())
+
 # ##import data in excell format from the first table only
 if(!require(readxl)) install.packages("readxl")
 if(!require(reshape2)) install.packages("reshape2")
@@ -26,6 +25,8 @@ library(lubridate)
 library(tempdisagg)
 library(openxlsx)
 
+#clean space
+rm(list = ls())
 ## import the data ##
 
 ######
@@ -71,15 +72,6 @@ ECM_Data <- merge(ECM_Data, CPIs, by.x = "Date", by.y = "Year", all.x = TRUE)
 plot(ECM_Data$B20, type = "l", col = "red")
 lines(ECM_Data$Petroleum.products, type = "l", col = "blue")
 
-
-## Convert on YoY inflation
-ECM_Data$B20 <- log(ECM_Data$B20/lag(ECM_Data$B20,12))
-ECM_Data$Petroleum.products <- log(ECM_Data$Petroleum.products/lag(ECM_Data$Petroleum.products,12))
-
-plot(ECM_Data$B20, type = "l", col = "red")
-lines(ECM_Data$Petroleum.products, type = "l", col = "blue")
-
-
 #select from 2000
 ECM_Data <- ECM_Data[169:nrow(ECM_Data),]
 ECM_Data$B20ts <- ts(ECM_Data$B20, start = c(2000,1), frequency = 12)
@@ -98,7 +90,7 @@ adf.test(ECM_Data$Petroleum.products)
 #non stationnarity satisfied
 
 #check for cointegration between the two time series using urca package
-test <- ca.jo(ECM_Data[,c(5,6)], type = "trace", ecdet = "const", K = 2, spec = "transitory")
+test <- ca.jo(ECM_Data[,c(5,9)], type = "trace", ecdet = "const", K = 2, spec = "transitory")
 #display the results
 summary(test)
 
@@ -197,54 +189,111 @@ forecast_ECM <- function(data_to_use,starting_row, steps_ahead,results_coeff) {
   return(temp)
 }
 
-italian_dish <- function(end, data,steps_ahead, step,results_coeff){
-  #loop on 4 by 4
-  for(i in seq(from = steps_ahead, to=end, by=step)){
+#generate and store for ECM
+
+out_of_sample <- data.frame(matrix(ncol = 1, nrow = 36))
+mean_of_fit <- data.frame(matrix(ncol = 1, nrow = 285))
+end <- nrow(ECM_Data)
+end <- end - 36
+
+for(i in 150:end+1){
     # truncate the number of lines of data
-    cherpa <- create_data_forecast(data, i, steps_ahead)
-    forecast <- forecast_ECM(cherpa, i ,steps_ahead, results_coeff)
-    toplot <- ts(forecast$Petroleum.products, start = c(2000,1), frequency = 12)
-    lines(toplot, type = "l", col = "blue")
-    }
+    cherpa <- create_data_forecast(ECM_Data, i-1, 36)
+    results_coeff <- the_famous_ECM_coeff(cherpa)
+    forecast <- forecast_ECM(cherpa, i ,36, results_coeff)
+    mean_of_fit <- data.frame(mean_of_fit, c(forecast$Petroleum.products,rep(NA,end - i + 1)))
+    #calculate the out of sample residuals
+    to_save <- (tail(forecast$Petroleum.products,36) - tail(ECM_Data$Petroleum.products,36))
+    out_of_sample <- data.frame(out_of_sample, to_save)
+}
+
+Error <- out_of_sample[,-1]
+Error_mean_by_time <- rowMeans(Error, na.rm = TRUE)
+Squared <- Error_mean_by_time^2
+
+
+
+
+### out of sample forecast for dumb
+
+temp <- ECM_Data$Petroleum.products
+out_of_sample_b <- data.frame(matrix(ncol = 1, nrow = 36))
+mean_of_fit_b <- data.frame(matrix(ncol = 1, nrow = length(temp)))
+end_b <- length(temp)
+end_b <- end_b - 36
+# Line types
+#iterate from line 36 to the en of CPIs
+for (i in 150:end_b+1){
+    temporary <-temp[1:i-1]
+    temporary <- ts(temporary, start = c(2000,1), frequency = 12)
+    end_year <- end(temporary)[1]
+    end_month <- end(temporary)[2]
+    #fit arima model on the first i-1 observations
+    fit <- arima(temporary, order = c(1,1,0))
+    fore <- forecast(fit, h = 36)
+    #save the mean of the fit
+    to_save <- c(temporary, fore$mean, rep(NA, end_b - i + 1))
+    mean_of_fit_b <- data.frame(mean_of_fit_b, to_save)
+    #save the error
+    to_save_2 <- (fore$mean - temp[i:i+36])
+    out_of_sample_b <- data.frame(out_of_sample_b, as.numeric(to_save_2))
+}
+Error_b <- out_of_sample_b[,-1]
+Error_mean_by_time_b <- rowMeans(Error_b, na.rm = TRUE)
+Squared_b <- Error_mean_by_time_b^2
+
+rm(end_b, end_month, end_year, fore, i, temporary, to_save, to_save_2, Error_mean_by_time_b)
+
+
+
+MSFE_pred_by_time <- 1 - (Squared/Squared_b)
+
+
+pdf(paste(getwd(), "/Graphs/double minus/predictive_r_double_minus.pdf", sep=""), width = 13, height = 5)
+
+barplot(MSFE_pred_by_time,names.arg = 1:36,main = "Predictive R_Squared by period" )
+
+dev.off()
+
+
+## plot spaghetti graph
+cpi_ohne_diff <- log(temp /lag(temp ,12))
+cpi_ohne_diff <- cpi_ohne_diff[13:length(cpi_ohne_diff)]
+cpi_ohne_diff <- ts(cpi_ohne_diff, start = c(2001,1), frequency = 12)
+pdf(paste(getwd(), "/Graphs/double minus/spag.pdf", sep=""))
+dev.off()
+plot(cpi_ohne_diff, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
+legend("topleft",           # Position of the legend
+       legend = c("ARIMA(3,0,0)", "ARIMA(1,0,0)"),  # Legend labels
+       col = c("Blue", "Green"),       # Colors
+       lty = 1)
+
+#remove first column of mean_of_fit
+mean_of_fit <- mean_of_fit[,-1]
+mean_of_fit_b <- mean_of_fit_b[,-1]
+
+for (i in seq(from = 1, to = 100, by = 20)){
+        print <- mean_of_fit[,i]
+        print <- log(print /lag(print ,12))
+        print <- print[13:length(print)]
+        print <- ts(print, start = c(2001,1), frequency = 12)
+        print <- tail(print, 136 - i  + 1)
+        lines(print, col="blue")
+
+        print <- mean_of_fit_b[,i]
+        print <- log(print /lag(print ,12))
+        print <- print[13:length(print)]
+        print <- ts(print, start = c(2001,1), frequency = 12)
+        print <- tail(print, 136 - i  + 1)
+        lines(print, col="green")
 }
 
 
 
-test <- create_data_forecast(ECM_Data, nrow(ECM_Data),36)
-test <- forecast_ECM(test, nrow(ECM_Data),36,coeff)
-
-#plot prediction
-plot_main <- ts(test$Petroleum.products, start = c(2000,1), frequency = 12)
-len <- length(test$Petroleum.products) - 36
-plot_second <- ts(test$Petroleum.products[1:len], start = c(2000,1), frequency = 12)
-
-pdf(paste(getwd(), "/Graphs/double minus/ECM_forecast.pdf", sep=""))
-plot(plot_main, type = "l", col = "blue", xlab = "Year", ylab = "Inflation", main = "CPIs YoY ECM forecast")
-lines(plot_second, type = "l", col = "red")
-dev.off()
 
 
 
 
-plot(test$Petroleum.products_delta, type = "l", col = "blue")
-lines(ECM_Data$Petroleum.products_delta, type = "l", col = "red")
-test2 <- create_data_forecast(ECM_Data, 222,36)
-plot(test2$B20, type = "l", col = "blue")
-plot(test$Petroleum.products, type = "l", col = "blue")
-plot(test$B20, type = "l", col = "blue")
-
-Petro_plot <- ts(ECM_Data$Petroleum.products, start = c(2000,1), frequency = 12)
-
-pdf(paste(getwd(), "/Graphs/double minus/spag_ECM.pdf", sep=""))
-plot(Petro_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
-legend("bottomright",           # Position of the legend
-       legend = c("ECM", "ARIMA(1,0,0)"),  # Legend labels
-       col = c("Blue", "Green"),       # Colors
-       lty = 1)
-# Example usage: Forecasting 36
-
-italian_dish(nrow(ECM_Data),ECM_Data,36,12,coeff)
-lines(Petro_plot, type = "l", lwd = 2 ,col = "red")
 
 
 
@@ -380,3 +429,18 @@ rm(Ljung, Pierce, Jarques)
 
 hist(residuals, breaks = 50, col = "red", main = "Histogram of residuals")
 
+
+## Convert on YoY inflation
+ECM_Data$B20 <- log(ECM_Data$B20/lag(ECM_Data$B20,12))
+ECM_Data$Petroleum.products <- log(ECM_Data$Petroleum.products/lag(ECM_Data$Petroleum.products,12))
+
+plot(ECM_Data$B20, type = "l", col = "red")
+lines(ECM_Data$Petroleum.products, type = "l", col = "blue")
+
+
+#select from 2000
+ECM_Data <- ECM_Data[169:nrow(ECM_Data),]
+ECM_Data$B20ts <- ts(ECM_Data$B20, start = c(2000,1), frequency = 12)
+ECM_Data$Petroleum.productsts <- ts(ECM_Data$Petroleum.products, start = c(2000,1), frequency = 12)
+plot(ECM_Data$B20ts , type = "l", col = "red")
+lines(ECM_Data$Petroleum.productsts, type = "l", col = "blue")
