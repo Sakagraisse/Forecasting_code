@@ -124,6 +124,7 @@ for (i in 150:end+1){
     fit <- arima(temporary, order = c(3,1,0))
     fore <- forecast(fit, h = 36)
     #save the mean of the fit
+    #convert monthly to quarterly
     to_save <- c(temporary, fore$mean, rep(NA, end - i + 1))
     mean_of_fit <- data.frame(mean_of_fit, to_save)
     #save the error
@@ -131,6 +132,14 @@ for (i in 150:end+1){
     out_of_sample <- data.frame(out_of_sample, as.numeric(to_save_2))
 }
 Error <- out_of_sample[,-1]
+#aggregate the error 4 rows by 4 rows
+Error$group <- (seq_len(nrow(Error)) - 1) %/% 3
+Error <- Error %>%
+  group_by(group) %>%
+  summarise(across(everything(), mean, na.rm = TRUE))
+Error <- Error[,-1]
+# Aggregate the data
+
 Error_mean_by_time <- rowMeans(Error, na.rm = TRUE)
 Squared <- Error_mean_by_time^2
 rm(end, end_month, end_year, fore, i, temporary, to_save, to_save_2, Error_mean_by_time)
@@ -160,6 +169,11 @@ for (i in 150:end_b+1){
     out_of_sample_b <- data.frame(out_of_sample_b, as.numeric(to_save_2))
 }
 Error_b <- out_of_sample_b[,-1]
+Error_b$group <- (seq_len(nrow(Error_b)) - 1) %/% 3
+Error_b <- Error_b %>%
+  group_by(group) %>%
+  summarise(across(everything(), mean, na.rm = TRUE))
+Error_b <- Error_b[,-1]
 Error_mean_by_time_b <- rowMeans(Error_b, na.rm = TRUE)
 Squared_b <- Error_mean_by_time_b^2
 
@@ -172,7 +186,7 @@ MSFE_pred_by_time <- 1 - (Squared/Squared_b)
 
 pdf(paste(getwd(), "/Graphs/double minus/predictive_r_double_minus.pdf", sep=""), width = 13, height = 5)
 
-barplot(MSFE_pred_by_time,names.arg = 1:36,main = "Predictive R_Squared by period" )
+barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period" )
 
 dev.off()
 
@@ -183,32 +197,46 @@ temp <- cpi_ohne[1:length(cpi_ohne)]
 cpi_ohne_diff <- log(temp /lag(temp ,12))
 cpi_ohne_diff <- cpi_ohne_diff[13:length(cpi_ohne_diff)]
 cpi_ohne_diff <- ts(cpi_ohne_diff, start = c(2001,1), frequency = 12)
+cpi_ohne_diff <- aggregate(cpi_ohne_diff, nfrequency = 4, FUN = mean)
+#remove first column of mean_of_fit
+mean_of_fit <- mean_of_fit[,-1]
+mean_of_fit_b <- mean_of_fit_b[,-1]
+
 pdf(paste(getwd(), "/Graphs/double minus/spag.pdf", sep=""))
 dev.off()
+
+
 plot(cpi_ohne_diff, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
 legend("topleft",           # Position of the legend
        legend = c("ARIMA(3,0,0)", "ARIMA(1,0,0)"),  # Legend labels
        col = c("Blue", "Green"),       # Colors
        lty = 1)
 
-#remove first column of mean_of_fit
-mean_of_fit <- mean_of_fit[,-1]
-mean_of_fit_b <- mean_of_fit_b[,-1]
 
-for (i in seq(from = 1, to = 100, by = 20)){
+for (i in seq(from = 1, to = 100, by = 4)){
+
         print <- mean_of_fit[,i]
         print <- log(print /lag(print ,12))
         print <- print[13:length(print)]
         print <- ts(print, start = c(2001,1), frequency = 12)
-        print <- tail(print, 136 - i  + 1)
-        lines(print, col="blue")
+        lenene <- length(print)
+        print <- tail(print, 139 - i + 1)
+        month <- start(print)[2]
+
+        if(month %in% c(1,4,7,10)){
+            print <- aggregate(print, nfrequency = 4, FUN = mean)
+            lines(print, col="blue")
+        }
+
 
         print <- mean_of_fit_b[,i]
         print <- log(print /lag(print ,12))
         print <- print[13:length(print)]
         print <- ts(print, start = c(2001,1), frequency = 12)
-        print <- tail(print, 136 - i  + 1)
-        lines(print, col="green")
+        print <- tail(print, 139 - i  + 1)
+        if(month %in% c(1,4,7,10)){
+            lines(print, col="green")
+        }
 }
 
 
@@ -220,7 +248,11 @@ for (i in seq(from = 1, to = 100, by = 20)){
 ######
 # Out of sample tests Diebold
 ######
-Diebold <- dm.test(Squared , Squared_b, alternative = "two.sided", h = 36, power = 1,varestimator = "bartlett")
+Diebold <- dm.test(Squared , Squared_b, alternative = "two.sided", h = 1, power = 1,varestimator = "bartlett")
+
+
+
+
 Diebold <- dm.test(Squared[1] , Squared_b[1], alternative = "two.sided", h = 1, power = 1,varestimator = "bartlett")
 
 
