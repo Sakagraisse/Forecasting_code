@@ -54,30 +54,32 @@ plot(cpi_ohne, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "C
 cpi_total <- ts(CPIs$Total, start = c(2000,1), frequency = 12)
 lines(cpi_total, col = "blue")
 rm(cpi_total)
-#plot(CPIs$Year, CPIs$Inf_Total, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
 
 #auto arima fit CPIs$Inflation.withoutRI
 fit <- auto.arima(cpi_ohne, seasonal = FALSE, approximation = FALSE, trace=TRUE, stepwise=FALSE)
 #check the residuals
 checkresiduals(fit)
-#plot the forecast
-tosee <- forecast(fit, h = 36)
-plot(tosee)
+#store specification and serie
 
+fit <- arima(cpi_ohne, order = c(4,1,1))
+fore <- forecast(fit, h = 36)
+spec <- c(4,1,1)
+serie <- c(cpi_ohne, fore$mean)
 
 #check stationnarity manually
 cpi_ohne_diff <- diff(cpi_ohne)[2:length(cpi_ohne)-1]
 plot(cpi_ohne_diff, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "CPIs YoY without rent and without petroleum products")
 #check for d with dickey fuller test
-adf.test(cpi_ohne_diff, alternative = "stationary", k = 1)
+adf.test(cpi_ohne_diff, alternative = "stationary", k = 15)
 ## is stqtionnary
 # check with KPSS
 kpss.test(cpi_ohne_diff, null = "Trend", lshort = TRUE)
 ## is stationnary
 
-rm(cpi_ohne_diff, tosee)
+rm(cpi_ohne_diff, fore )
+
 ######
-# 3 model quality tes
+# 3 model quality test
 ######
 
 #calculate the in sample residuals
@@ -90,9 +92,9 @@ in_sample_MAE <- mean(abs(in_sample_residuals))
 base_stat <- data.frame(in_sample_RMSE, in_sample_MAE)
 rm(in_sample_MAE, in_sample_RMSE)
 # Ljung Box-Q Test
-Ljung <- Box.test(in_sample_residuals, lag = 10, type = "Ljung-Box", fitdf = 3)
+Ljung <- Box.test(in_sample_residuals, lag = 10, type = "Ljung-Box", fitdf = 5)
 # White Test
-Pierce <- Box.test(in_sample_residuals, lag = 10, type = "Box-Pierce", fitdf = 3)
+Pierce <- Box.test(in_sample_residuals, lag = 10, type = "Box-Pierce", fitdf = 5)
 # jarque bera test
 Jarques <- jarque.bera.test(in_sample_residuals)
 # White Test
@@ -100,8 +102,6 @@ White <- white_test(fit)
 
 in_sample_tests <- data.frame(Ljung$p.value, White$p_value, Jarques$p.value,Pierce$p.value)
 rm(Ljung, Pierce, Jarques, White, in_sample_residuals, fit)
-
-
 
 ######
 # Out of sample tests comparative
@@ -121,7 +121,7 @@ for (i in 150:end+1){
     end_year <- end(temporary)[1]
     end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
-    fit <- arima(temporary, order = c(3,1,0))
+    fit <- arima(temporary, order = c(4,1,1))
     fore <- forecast(fit, h = 36)
     #save the mean of the fit
     #convert monthly to quarterly
@@ -132,17 +132,10 @@ for (i in 150:end+1){
     out_of_sample <- data.frame(out_of_sample, as.numeric(to_save_2))
 }
 Error <- out_of_sample[,-1]
-#aggregate the error 4 rows by 4 rows
-Error$group <- (seq_len(nrow(Error)) - 1) %/% 3
-Error <- Error %>%
-  group_by(group) %>%
-  summarise(across(everything(), mean, na.rm = TRUE))
-Error <- Error[,-1]
 # Aggregate the data
-
-Error_mean_by_time <- rowMeans(Error, na.rm = TRUE)
-Squared <- Error_mean_by_time^2
-rm(end, end_month, end_year, fore, i, temporary, to_save, to_save_2, Error_mean_by_time)
+Error <- Error^2
+Squared <- rowMeans(Error, na.rm = TRUE)
+rm(end, end_month, end_year, fore, i, temporary, to_save, to_save_2)
 
 
 ### out of sample forecast for our model
@@ -169,24 +162,18 @@ for (i in 150:end_b+1){
     out_of_sample_b <- data.frame(out_of_sample_b, as.numeric(to_save_2))
 }
 Error_b <- out_of_sample_b[,-1]
-Error_b$group <- (seq_len(nrow(Error_b)) - 1) %/% 3
-Error_b <- Error_b %>%
-  group_by(group) %>%
-  summarise(across(everything(), mean, na.rm = TRUE))
-Error_b <- Error_b[,-1]
-Error_mean_by_time_b <- rowMeans(Error_b, na.rm = TRUE)
-Squared_b <- Error_mean_by_time_b^2
-
-rm(end_b, end_month, end_year, fore, i, temporary, to_save, to_save_2, Error_mean_by_time_b)
+Error_b <- Error_b^2
+Squared_b <- rowMeans(Error_b, na.rm = TRUE)
 
 
+rm(end_b, end_month, end_year, fore, i, temporary, to_save, to_save_2)
 
 MSFE_pred_by_time <- 1 - (Squared/Squared_b)
 
 
 pdf(paste(getwd(), "/Graphs/double minus/predictive_r_double_minus.pdf", sep=""), width = 13, height = 5)
 
-barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period" )
+barplot(MSFE_pred_by_time,names.arg = 1:36,main = "Predictive R_Squared by period" )
 
 dev.off()
 
@@ -240,45 +227,32 @@ for (i in seq(from = 1, to = 100, by = 4)){
 }
 
 
-
-#wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
-
-
-
-######
+#####
 # Out of sample tests Diebold
 ######
-Diebold <- dm.test(Squared , Squared_b, alternative = "two.sided", h = 1, power = 1,varestimator = "bartlett")
-
-
-
-
-Diebold <- dm.test(Squared[1] , Squared_b[1], alternative = "two.sided", h = 1, power = 1,varestimator = "bartlett")
-
-
-dm.test(Squared , Squared_b, alternative = "two.sided", h = 36, power = 1,varestimator = "bartlett")
-
-
-
-#Dieblod Mariano test
-num_rows <- nrow(MSFE_by_time)
-num_cols <- ncol(MSFE_by_time_b)
-Diebold <- as.data.frame(matrix(ncol = num_cols, nrow = num_rows))
-names(Diebold) <- names(MSFE_by_time)
-
-for(u in 2:num_cols){
-    for(t in 2:num_rows){
-        Diebold[t,u] <- dm.test(MSFE_by_time[1:t,u] , MSFE_by_time_b[1:t,u], alternative = "two.sided", h = t, power = 2,varestimator = "bartlett")
-    }
+Diebold_DM<- c()
+Diebold_p<- c()
+for(i in 1:36){
+    Diebold_DM[i] <- dm.test(Squared, Squared_b, alternative = "two.sided", h = i, power = 1,varestimator = "bartlett")$statistic
+    Diebold_p[i] <- dm.test(Squared, Squared_b, alternative = "two.sided", h = i, power = 1,varestimator = "bartlett")$p.value
 }
 
-rm(num_cols, num_rows, t, u)
-
+barplot(Diebold_DM,names.arg = 1:36,main = "Diebold Mariano test by period" )
+barplot(Diebold_p,names.arg = 1:36,main = "Diebold Mariano test by period" )
 
 ######
 # True inflation
 ######
 
 
+######
+# si necessaire
+######
 
 
+#aggregate the error 4 rows by 4 rows
+Error$group <- (seq_len(nrow(Error)) - 1) %/% 3
+Error <- Error %>%
+  group_by(group) %>%
+  summarise(across(everything(), mean, na.rm = TRUE))
+Error <- Error[,-1]
