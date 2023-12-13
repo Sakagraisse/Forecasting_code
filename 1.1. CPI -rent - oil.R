@@ -1,6 +1,5 @@
 #clean space
 rm(list = ls())
-
 # Get the current working directory
 current_directory <- getwd()
 # ##import data in excell format from the first table only
@@ -35,14 +34,15 @@ library(tempdisagg)
 library(openxlsx)
 
 
-#load data : CPIs.RData
+######
+# DATA import and tranformation
+######
+
 #load data : CPIs.RData
 load("CPIs.RData")
 
 ######### weight data
 dataw <- read_excel("wieght_data.xlsx", sheet = 1, col_names = TRUE)
-#CPIs <- CPIs_trunk
-#rm(CPIs_trunk)
 CPIs$Inf_OIL <- log(CPIs$`Petroleum.products`/lag(CPIs$`Petroleum.products`,12))
 CPIs$Inf_Rent <- log(CPIs$`Housing.rental.1`/lag(CPIs$`Housing.rental.1`,12))
 CPIs$Inf_Total <- log(CPIs$Total/lag(CPIs$Total,12))
@@ -70,6 +70,9 @@ for (i in 1:length(CPIs$Inf_Rent)){
     CPIs$Inflation.withoutRI_log[i] <- (CPIs$Inf_Total[i] - CPIs$Inf_OIL[i]*weight_oil[i] - CPIs$Inf_Rent[i]*weight_rent[i])/weight_w_o_r[i]*100
 }
 
+######
+# 2 Fitting ARIMA model
+######
 
 #plot without rent index and withoutRI
 plot(CPIs$Year, CPIs$`Inflation.withoutRI_log`, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
@@ -79,11 +82,6 @@ plot(CPIs$Year, CPIs$`Inflation.withoutRI_log`, type = "l", col = "red", xlab = 
 fit <- auto.arima(CPIs$Inflation.withoutRI_log, seasonal = FALSE, approximation = FALSE, trace=TRUE)
 #reduce data to remove NAs introduced by the lag
 CPIs <- CPIs[13:nrow(CPIs),]
-
-
-######
-# 2 Fitting ARIMA model
-######
 
 #check stationnarity manually
 #manually check the best model by finding p,d,q in an ARIMA(p,d,q) model
@@ -99,9 +97,9 @@ pacf(CPIs$Inflation.withoutRI_log, lag.max = 20, plot = TRUE)
 ## around 3
 #check for q using ACF
 acf(CPIs$Inflation.withoutRI_log, lag.max = 20, plot = TRUE)
-## around 2
+## around 0
 
-#fit the correpsonding ARIMA(2,0,0) model
+#fit the correpsonding ARIMA(3,0,0) model
 to_fit <- ts(CPIs$Inflation.withoutRI_log, start = c(2000,1), frequency = 12)
 fit2 <- arima(to_fit, order = c(3,0,0), method = "ML")
 tosee <- forecast(fit2, h = 36)
@@ -117,7 +115,7 @@ dev.off()
 checkresiduals(fit2)
 
 ######
-# In sample tests
+# 3 model quality tes
 ######
 
 #calculate the in sample residuals
@@ -140,6 +138,15 @@ White <- white_test(fit2)
 
 in_sample_tests <- data.frame(Ljung$p.value, White$p_value, Jarques$p.value,Pierce$p.value)
 rm(Ljung, Pierce, Jarques, White)
+
+
+######
+# 4 in sample test
+######
+
+#### to do
+
+
 
 ######
 # Out of sample tests comparative
