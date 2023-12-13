@@ -1,7 +1,4 @@
-#clean space
-rm(list = ls())
-# Get the current working directory
-current_directory <- getwd()
+
 # ##import data in excell format from the first table only
 if(!require(readxl)) install.packages("readxl")
 if(!require(reshape2)) install.packages("reshape2")
@@ -33,6 +30,10 @@ library(lubridate)
 library(tempdisagg)
 library(openxlsx)
 
+#clean space
+rm(list = ls())
+# Get the current working directory
+current_directory <- getwd()
 
 ######
 # DATA import and tranformation
@@ -43,83 +44,65 @@ load("CPIs.RData")
 
 ######### weight data
 dataw <- read_excel("wieght_data.xlsx", sheet = 1, col_names = TRUE)
-CPIs$Inf_OIL <- log(CPIs$`Petroleum.products`/lag(CPIs$`Petroleum.products`,12))
-CPIs$Inf_Rent <- log(CPIs$`Housing.rental.1`/lag(CPIs$`Housing.rental.1`,12))
-CPIs$Inf_Total <- log(CPIs$Total/lag(CPIs$Total,12))
+CPIs$OIL <-CPIs$`Petroleum.products`
+CPIs$Rent <- CPIs$`Housing.rental.1`
 dataw <- dataw[,c(1:6)]
-#create a repetition of each line 12 times
-monthly_sequence <- rep(1:12, each = nrow(dataw))
 
 # Repeat each row in your_data 12 times
 monthly_data <- dataw[rep(seq_len(nrow(dataw)), each = 12), ]
-# have the same lenght for CPIs and weight
-CPIs <- CPIs[-c(1:204),]
-monthly_data <- monthly_data[c(1:285),]
-#create new column for weight of total minus oil minus rent
 monthly_data$Totalw_o_r <- monthly_data$Total - monthly_data$Oil - monthly_data$Rent
-#create time series for each column
-weight_rent <- ts(monthly_data$Rent, start = c(2000,1), frequency = 12)
-weight_oil <- ts(monthly_data$Oil, start = c(2000,1), frequency = 12)
-weight_w_o <- ts(monthly_data$Totalw_o, start = c(2000,1), frequency = 12)
-weight_w_r <- ts(monthly_data$Totalw_r, start = c(2000,1), frequency = 12)
-weight_w_o_r <- ts(monthly_data$Totalw_o_r, start = c(2000,1), frequency = 12)
+# generate monthly date  and add it to the data
+monthly_data$Date <- seq(as.Date("2000/1/1"), by = "month", length.out = nrow(monthly_data))
 
-## create the wieghted CPIS for oil and rent
-#create loop to multiply each value of cpi with the weight
-for (i in 1:length(CPIs$Inf_Rent)){
-    CPIs$Inflation.withoutRI_log[i] <- (CPIs$Inf_Total[i] - CPIs$Inf_OIL[i]*weight_oil[i] - CPIs$Inf_Rent[i]*weight_rent[i])/weight_w_o_r[i]*100
-}
+# have the same lenght for CPIs and weight
+CPIs <- CPIs[205:489,]
+monthly_data <- monthly_data[1:285,]
+monthly_data <- monthly_data[,-1]
+#renqme the columns
+names(monthly_data) <- c( "W_total", "W_housing", "W_oil", "W_totalw_o", "W_totalw_r", "Totalw_o_r", "Year")
+#remove first column
+monthly_data <- monthly_data[,-1]
+#merge the two data sets
+CPIs <- merge(monthly_data, CPIs, by = "Year")
+
+CPIs$our <- (CPIs$Total - CPIs$OIL*CPIs$W_oil/100 - CPIs$Rent*CPIs$W_housing/100)/CPIs$Totalw_o_r*100
+
+rm(dataw, monthly_data )
 
 ######
 # 2 Fitting ARIMA model
 ######
-
-#plot without rent index and withoutRI
-plot(CPIs$Year, CPIs$`Inflation.withoutRI_log`, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
+#plot
+cpi_ohne <- ts(CPIs$Total, start = c(2000,1), frequency = 12)
+plot(cpi_ohne, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
 #plot(CPIs$Year, CPIs$Inf_Total, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
 
 #auto arima fit CPIs$Inflation.withoutRI
-fit <- auto.arima(CPIs$Inflation.withoutRI_log, seasonal = FALSE, approximation = FALSE, trace=TRUE)
-#reduce data to remove NAs introduced by the lag
-CPIs <- CPIs[13:nrow(CPIs),]
-
-#check stationnarity manually
-#manually check the best model by finding p,d,q in an ARIMA(p,d,q) model
-#check for d with dickey fuller test
-adf.test(CPIs$Inflation.withoutRI_log, alternative = "stationary", k = trunc((length(CPIs$Inflation.withoutRI_log)-1)^(1/3)))
-## Not Stationnary
-# check with KPSS
-kpss.test(CPIs$Inflation.withoutRI_log, null = "Trend", lshort = TRUE)
-## is stationnary
-
-#check for p using PACF
-pacf(CPIs$Inflation.withoutRI_log, lag.max = 20, plot = TRUE)
-## around 3
-#check for q using ACF
-acf(CPIs$Inflation.withoutRI_log, lag.max = 20, plot = TRUE)
-## around 0
-
-#fit the correpsonding ARIMA(3,0,0) model
-to_fit <- ts(CPIs$Inflation.withoutRI_log, start = c(2000,1), frequency = 12)
-fit2 <- arima(to_fit, order = c(3,0,0), method = "ML")
-tosee <- forecast(fit2, h = 36)
+fit <- auto.arima(cpi_ohne, seasonal = FALSE, approximation = FALSE, trace=TRUE)
+#check the residuals
+checkresiduals(fit)
+#plot the forecast
+tosee <- forecast(fit, h = 36)
 plot(tosee)
 
 
-# export graph
-pdf(paste(getwd(), "/Graphs/double minus/test.pdf", sep=""))
-plot(tosee,type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "CPIs YoY without rent and without petroleum products")
-dev.off()
+#check stationnarity manually
+cpi_ohne_diff <- diff(cpi_ohne)[2:length(cpi_ohne)-1]
+plot(cpi_ohne_diff, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "CPIs YoY without rent and without petroleum products")
+#check for d with dickey fuller test
+adf.test(cpi_ohne_diff, alternative = "stationary", k = 1)
+## is stqtionnary
+# check with KPSS
+kpss.test(cpi_ohne_diff, null = "Trend", lshort = TRUE)
+## is stationnary
 
-#check the residuals
-checkresiduals(fit2)
-
+rm(cpi_ohne_diff, tosee)
 ######
 # 3 model quality tes
 ######
 
 #calculate the in sample residuals
-in_sample_residuals <- fit2$residuals
+in_sample_residuals <- fit$residuals
 #calculate the in sample RMSE
 in_sample_RMSE <- sqrt(mean(in_sample_residuals^2))
 #calculate the in sample MAE
@@ -134,17 +117,10 @@ Pierce <- Box.test(in_sample_residuals, lag = 10, type = "Box-Pierce", fitdf = 3
 # jarque bera test
 Jarques <- jarque.bera.test(in_sample_residuals)
 # White Test
-White <- white_test(fit2)
+White <- white_test(fit)
 
 in_sample_tests <- data.frame(Ljung$p.value, White$p_value, Jarques$p.value,Pierce$p.value)
-rm(Ljung, Pierce, Jarques, White)
-
-
-######
-# 4 in sample test
-######
-
-#### to do
+rm(Ljung, Pierce, Jarques, White, in_sample_residuals, fit)
 
 
 
@@ -154,91 +130,72 @@ rm(Ljung, Pierce, Jarques, White)
 
 ### out of sample forecast for our model
 
-Inflation.withoutRI_log <- ts(CPIs$Inflation.withoutRI_log,start = c(2000,1), frequency = 12)
 out_of_sample <- data.frame(matrix(ncol = 1, nrow = 36))
-mean_of_fit <- data.frame(matrix(ncol = 1, nrow = 36))
+mean_of_fit <- data.frame(matrix(ncol = 1, nrow = nrow(CPIs)))
+timets <- data.frame(matrix(ncol = 1, nrow = 1))
 end <- nrow(CPIs)
 end <- end - 36
-pdf(paste(getwd(), "/Graphs/double minus/spag.pdf", sep=""))
-plot(Inflation.withoutRI_log, type = "l", col = "blue", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
-legend("topright",           # Position of the legend
-       legend = c("ARIMA(3,0,0)", "ARIMA(1,0,0)"),  # Legend labels
-       col = c("Blue", "Green"),       # Colors
-       lty = 1)                      # Line types
+# Line types
 #iterate from line 36 to the en of CPIs
-for (i in 37:end){
-    temporary <- Inflation.withoutRI_log[1:i-1]
+for (i in 100:end+1){
+    temporary <- cpi_ohne[1:i-1]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
     end_year <- end(temporary)[1]
     end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
-    fit <- arima(temporary, order = c(3,0,0))
-    #forecast the i-th observation
+    fit <- arima(temporary, order = c(3,1,0))
     fore <- forecast(fit, h = 36)
-    print <- temporary[i-1]
-    print <- c(print, fore$mean)
-    print <- as.data.frame(print)
-    totototo <- fore$mean
-    print <- ts(print, start = c(end_year, end_month), frequency = 12)
-    #print <- aggregate(print, nfrequency = 4, FUN = mean)
-    if (i %in% seq(from = 1, to=end, by=10)){
-        lines(print, col="red")
-    }
-    #calculate the out of sample forecast
-    to_save <- (totototo - Inflation.withoutRI_log[i:i+36])
-    out_of_sample <- data.frame(out_of_sample, to_save)
-    mean_of_fit <- data.frame(mean_of_fit, fore)
-
+    #save the mean of the fit
+    to_save <- c(temporary, fore$mean, rep(NA, end - i + 1))
+    mean_of_fit <- data.frame(mean_of_fit, to_save)
+    #save the error
+    to_save_2 <- (fore$mean - cpi_ohne[i:i+36])
+    out_of_sample <- data.frame(out_of_sample, to_save_2)
+    tosave_3  <- c(temporary, fore$mean)
+    tosave_3 <- ts(fore$mean, start = c(end_year, end_month), frequency = 12)
+    timets <- data.frame(timets, tosave_3)
 }
-
-
-#remove first column
 Error <- out_of_sample[,-1]
 Error_mean_by_time <- rowMeans(Error, na.rm = TRUE)
 Squared <- Error_mean_by_time^2
 
-rm(end, end_month, end_year, fore, i, mean_of_fit, out_of_sample, print, temporary, to_save, Error_mean_by_time, Error)
+rm(end, end_month, end_year, fore, i, temporary, to_save, to_save_2, Error_mean_by_time)
 
 
-### out of sample forecast for benchmark model
+### out of sample forecast for our model
 
-Inflation.withoutRI_log <- ts(CPIs$Inflation.withoutRI_log,start = c(1984,1), frequency = 12)
 out_of_sample_b <- data.frame(matrix(ncol = 1, nrow = 36))
-mean_of_fit_b <- data.frame(matrix(ncol = 1, nrow = 36))
+mean_of_fit_b <- data.frame(matrix(ncol = 1, nrow = nrow(CPIs)))
+timets_b <- data.frame(matrix(ncol = 1, nrow = 1))
 end_b <- nrow(CPIs)
 end_b <- end_b - 36
-#plot(Inflation.withoutRI_log)
-
+# Line types
 #iterate from line 36 to the en of CPIs
-for (i in 37:end_b){
-    temporary <- Inflation.withoutRI_log[1:i-1]
+for (i in 100:end_b+1){
+    temporary <- cpi_ohne[1:i-1]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
     end_year <- end(temporary)[1]
     end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
-    fit <- arima(temporary, order = c(1,0,1), method = "ML")
+    fit <- arima(temporary, order = c(1,1,0))
     fore <- forecast(fit, h = 36)
-    print <- temporary[i-1]
-    print <- c(print, fore$mean)
-    print <- as.data.frame(print)
-    totototo <- fore$mean
-    print <- ts(print, start = c(end_year, end_month), frequency = 12)
-    if (i %in% seq(from = 1, to=end_b, by=10)){
-        lines(print, col="green")
-    }
-    #calculate the out of sample forecast
-    to_save <- (as.numeric(fore$mean) - Inflation.withoutRI_log[i:i+36])^2
-    out_of_sample_b <- data.frame(out_of_sample_b, to_save)
-    mean_of_fit_b <- data.frame(mean_of_fit_b, fore$mean)
-
+    #save the mean of the fit
+    to_save <- c(temporary, fore$mean, rep(NA, end_b - i + 1))
+    mean_of_fit_b <- data.frame(mean_of_fit_b, to_save)
+    #save the error
+    to_save_2 <- (fore$mean - cpi_ohne[i:i+36])
+    out_of_sample_b <- data.frame(out_of_sample_b, to_save_2)
+    tosave_3  <- c(temporary, fore$mean)
+    tosave_3 <- ts(fore$mean, start = c(end_year, end_month), frequency = 12)
+    timets_b <- data.frame(timets_b, tosave_3)
 }
-dev.off()
-
 Error_b <- out_of_sample_b[,-1]
 Error_mean_by_time_b <- rowMeans(Error_b, na.rm = TRUE)
 Squared_b <- Error_mean_by_time_b^2
 
-rm(end, end_month, end_year, fore, i, mean_of_fit, out_of_sample, print, temporary, to_save, Error_mean_by_time_b, Error_b)
+rm(end_b, end_month, end_year, fore, i, temporary, to_save, to_save_2, Error_mean_by_time_b)
+
+
 
 MSFE_pred_by_time <- 1 - (Squared/Squared_b)
 
@@ -248,6 +205,47 @@ pdf(paste(getwd(), "/Graphs/double minus/predictive_r_double_minus.pdf", sep="")
 barplot(MSFE_pred_by_time,names.arg = 1:36,main = "Predictive R_Squared by period" )
 
 dev.off()
+
+
+## plot spaghetti graph
+
+temp <- cpi_ohne[1:length(cpi_ohne)]
+cpi_ohne_diff <- log(temp /lag(temp ,12))
+cpi_ohne_diff <- cpi_ohne_diff[13:length(cpi_ohne_diff)]
+cpi_ohne_diff <- ts(cpi_ohne_diff, start = c(2001,1), frequency = 12)
+pdf(paste(getwd(), "/Graphs/double minus/spag.pdf", sep=""))
+dev.off()
+plot(cpi_ohne_diff, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
+legend("topleft",           # Position of the legend
+       legend = c("ARIMA(3,0,0)", "ARIMA(1,0,0)"),  # Legend labels
+       col = c("Blue", "Green"),       # Colors
+       lty = 1)
+
+#remove first column of mean_of_fit
+mean_of_fit <- mean_of_fit[,-1]
+mean_of_fit_b <- mean_of_fit_b[,-1]
+
+for (i in seq(from = 1, to = 150, by = 50)){
+        print <- mean_of_fit[,i]
+        print <- log(print /lag(print ,12))
+        print <- print[13:length(print)]
+        print <- ts(print, start = c(2001,1), frequency = 12)
+        print <- tail(print, 186 - i  + 1)
+        lines(print, col="blue")
+
+        print <- mean_of_fit_b[,i]
+        print <- log(print /lag(print ,12))
+        print <- print[13:length(print)]
+        print <- ts(print, start = c(2001,1), frequency = 12)
+        print <- tail(print, 186 - i  + 1)
+        lines(print, col="green")
+}
+
+
+
+#wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
+
+
 
 ######
 # Out of sample tests Diebold
