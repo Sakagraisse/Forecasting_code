@@ -73,8 +73,11 @@ rm(dataw, monthly_data )
 # 2 Fitting ARIMA model
 ######
 #plot
-cpi_ohne <- ts(CPIs$Total, start = c(2000,1), frequency = 12)
+cpi_ohne <- ts(CPIs$our, start = c(2000,1), frequency = 12)
 plot(cpi_ohne, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
+cpi_total <- ts(CPIs$Total, start = c(2000,1), frequency = 12)
+lines(cpi_total, col = "blue")
+rm(cpi_total)
 #plot(CPIs$Year, CPIs$Inf_Total, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
 
 #auto arima fit CPIs$Inflation.withoutRI
@@ -132,12 +135,11 @@ rm(Ljung, Pierce, Jarques, White, in_sample_residuals, fit)
 
 out_of_sample <- data.frame(matrix(ncol = 1, nrow = 36))
 mean_of_fit <- data.frame(matrix(ncol = 1, nrow = nrow(CPIs)))
-timets <- data.frame(matrix(ncol = 1, nrow = 1))
 end <- nrow(CPIs)
 end <- end - 36
 # Line types
 #iterate from line 36 to the en of CPIs
-for (i in 100:end+1){
+for (i in 150:end+1){
     temporary <- cpi_ohne[1:i-1]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
     end_year <- end(temporary)[1]
@@ -150,15 +152,11 @@ for (i in 100:end+1){
     mean_of_fit <- data.frame(mean_of_fit, to_save)
     #save the error
     to_save_2 <- (fore$mean - cpi_ohne[i:i+36])
-    out_of_sample <- data.frame(out_of_sample, to_save_2)
-    tosave_3  <- c(temporary, fore$mean)
-    tosave_3 <- ts(fore$mean, start = c(end_year, end_month), frequency = 12)
-    timets <- data.frame(timets, tosave_3)
+    out_of_sample <- data.frame(out_of_sample, as.numeric(to_save_2))
 }
 Error <- out_of_sample[,-1]
 Error_mean_by_time <- rowMeans(Error, na.rm = TRUE)
 Squared <- Error_mean_by_time^2
-
 rm(end, end_month, end_year, fore, i, temporary, to_save, to_save_2, Error_mean_by_time)
 
 
@@ -166,12 +164,11 @@ rm(end, end_month, end_year, fore, i, temporary, to_save, to_save_2, Error_mean_
 
 out_of_sample_b <- data.frame(matrix(ncol = 1, nrow = 36))
 mean_of_fit_b <- data.frame(matrix(ncol = 1, nrow = nrow(CPIs)))
-timets_b <- data.frame(matrix(ncol = 1, nrow = 1))
 end_b <- nrow(CPIs)
 end_b <- end_b - 36
 # Line types
 #iterate from line 36 to the en of CPIs
-for (i in 100:end_b+1){
+for (i in 150:end_b+1){
     temporary <- cpi_ohne[1:i-1]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
     end_year <- end(temporary)[1]
@@ -184,10 +181,7 @@ for (i in 100:end_b+1){
     mean_of_fit_b <- data.frame(mean_of_fit_b, to_save)
     #save the error
     to_save_2 <- (fore$mean - cpi_ohne[i:i+36])
-    out_of_sample_b <- data.frame(out_of_sample_b, to_save_2)
-    tosave_3  <- c(temporary, fore$mean)
-    tosave_3 <- ts(fore$mean, start = c(end_year, end_month), frequency = 12)
-    timets_b <- data.frame(timets_b, tosave_3)
+    out_of_sample_b <- data.frame(out_of_sample_b, as.numeric(to_save_2))
 }
 Error_b <- out_of_sample_b[,-1]
 Error_mean_by_time_b <- rowMeans(Error_b, na.rm = TRUE)
@@ -225,19 +219,19 @@ legend("topleft",           # Position of the legend
 mean_of_fit <- mean_of_fit[,-1]
 mean_of_fit_b <- mean_of_fit_b[,-1]
 
-for (i in seq(from = 1, to = 150, by = 50)){
+for (i in seq(from = 1, to = 100, by = 20)){
         print <- mean_of_fit[,i]
         print <- log(print /lag(print ,12))
         print <- print[13:length(print)]
         print <- ts(print, start = c(2001,1), frequency = 12)
-        print <- tail(print, 186 - i  + 1)
+        print <- tail(print, 136 - i  + 1)
         lines(print, col="blue")
 
         print <- mean_of_fit_b[,i]
         print <- log(print /lag(print ,12))
         print <- print[13:length(print)]
         print <- ts(print, start = c(2001,1), frequency = 12)
-        print <- tail(print, 186 - i  + 1)
+        print <- tail(print, 136 - i  + 1)
         lines(print, col="green")
 }
 
