@@ -34,17 +34,35 @@ library(openxlsx)
 
 rm(list = ls())
 #load data : CPIs.RData
-load("Rent_fore_q.RData")
-CPIs <- Rent_fore_q
-rm(Rent_fore_q)
-#
-#rename the columns
-colnames(CPIs) <- c( "Mortgage", "Rent", "Date")
-Rent <- ts(CPIs$Rent, start = c(2008,3), frequency = 4)
-Mortgage <- ts(CPIs$Mortgage, start = c(2008,3), frequency = 4)
-
+load("CPIs_double_minus.RData")
+Rent <- ts(CPIs$Housing.rental.1, start = c(2000,1), frequency = 12)
+Rent <- aggregate(Rent,4,mean)
 plot(Rent, type = "l", col = "red", xlab = "Year", ylab = "Rent Inflation", main = "CPIs Rent YoY")
+
+#import excel file with mortgage data
+Mortgage <- read_excel("mortgage_rate_c.xlsx", sheet = 1, col_names = TRUE)
+#invert the order of the rows
+Mortgage <- Mortgage[rev(row.names(Mortgage)),]
+#keep firt column only
+Mortgage <- Mortgage[,1]
+#change name of column
+colnames(Mortgage) <- c("Mortgage")
+#convert to vector
+Mortgage <- as.numeric(Mortgage$Mortgage)
+#duplicate each value 3 times to have monthly frequency
+Mortgage2 <- rep(Mortgage, each = 3)
+#remove first value
+Mortgage2 <- Mortgage2[-1]
+#remove 2 last values
+Mortgage2 <- Mortgage2[-c(length(Mortgage2), length(Mortgage2)-1)]
+Mortgage2 <- ts(Mortgage2, start = c(2008,10), frequency = 12)
+Mortgage <- aggregate(Mortgage2,4,mean)
 plot(Mortgage, type = "l", col = "red", xlab = "Year", ylab = "Mortgage Inflation", main = "CPIs Mortgage YoY")
+
+Rent <- tail(Rent, length(Mortgage))
+length(Rent)
+length(Mortgage)
+
 
 
 ######
@@ -52,8 +70,8 @@ plot(Mortgage, type = "l", col = "red", xlab = "Year", ylab = "Mortgage Inflatio
 ######
 fit_X <- auto.arima(Rent, stepwise=FALSE, seasonal = FALSE, approximation = FALSE, trace=TRUE, xreg = Mortgage)
 fit_M <- auto.arima(Mortgage, stepwise=FALSE, seasonal = FALSE, approximation = FALSE, trace=TRUE)
-spec_rent <- c(0,2,4)
-spec_mortgage <- c(0,2,1)
+spec_rent <- c(2,2,0)
+spec_mortgage <- c(2,2,2)
 
 
 fit_X <- arima(Rent, order = spec_rent, xreg = Mortgage)
@@ -100,16 +118,16 @@ rm(Ljung, Pierce, Jarques, White)
 ### out of sample forecast for our model
 
 out_of_sample <- data.frame(matrix(ncol = 1, nrow = 12))
-mean_of_fit <- data.frame(matrix(ncol = 1, nrow = nrow(CPIs)))
-end <- nrow(CPIs)
+mean_of_fit <- data.frame(matrix(ncol = 1, nrow = length(Rent)))
+end <- length(Rent)
 end <- end - 12
 # Line types
 #iterate from line 36 to the en of CPIs
 for (i in 20:49){
     temporary <- Rent[1:(i-1)]
-    temporary <- ts(temporary, start = c(2008,3), frequency = 4)
+    temporary <- ts(temporary, start = c(2008,4), frequency = 4)
     temporary_m <- Mortgage[1:(i-1)]
-    temporary_m <- ts(temporary_m, start = c(2008,3), frequency = 4)
+    temporary_m <- ts(temporary_m, start = c(2008,4), frequency = 4)
     end_year <- end(temporary)[1]
     end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
@@ -136,14 +154,14 @@ rm(end, end_month, end_year, fore, i, temporary, to_save, to_save_2)
 ### out of sample forecast for our model
 
 out_of_sample_b <- data.frame(matrix(ncol = 1, nrow = 12))
-mean_of_fit_b <- data.frame(matrix(ncol = 1, nrow = nrow(CPIs)))
-end_b <- nrow(CPIs)
+mean_of_fit_b <- data.frame(matrix(ncol = 1, nrow = length(Rent)))
+end_b <-length(Rent)
 end_b <- end_b - 12
 # Line types
 #iterate from line 36 to the en of CPIs
 for (i in 20:49){
     temporary <- Rent[1:i-1]
-    temporary <- ts(temporary, start = c(2008,3), frequency = 4)
+    temporary <- ts(temporary, start = c(2008,4), frequency = 4)
     end_year <- end(temporary)[1]
     end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
@@ -177,7 +195,7 @@ dev.off()
 temp <- Rent[1:length(Rent)]
 Rent_Y <- (temp / lag(temp, 4) - 1) * 100
 Rent_Y <- Rent_Y[5:length(Rent_Y)]
-Rent_Y <- ts(Rent_Y, start = c(2010,4), frequency = 4)
+Rent_Y <- ts(Rent_Y, start = c(2009,4), frequency = 4)
 #remove first column of mean_of_fit
 mean_of_fit <- mean_of_fit[,-1]
 mean_of_fit_b <- mean_of_fit_b[,-1]
@@ -190,19 +208,19 @@ legend("topleft",           # Position of the legend
        lty = 1)
 
 
-for (i in seq(from = 1, to = 20, by = 3)){
+for (i in seq(from = 1, to = 30, by = 6)){
         print <- mean_of_fit[,i]
         print <- (print / lag(print ,4) - 1) * 100
         print <- print[5:length(print)]
-        print <- ts(print, start = c(2010,4), frequency = 4)
-        print <- tail(print, (12 + 20 + 1 - i))
+        print <- ts(print, start = c(2009,4), frequency = 4)
+        print <- tail(print, (43 - i))
         lines(print, col="blue")
 
         print <- mean_of_fit_b[,i]
         print <- (print / lag(print ,4) - 1) * 100
         print <- print[5:length(print)]
-        print <- ts(print, start = c(2010,4), frequency = 4)
-        print <- tail(print, (12 + 20 + 1 - i))
+        print <- ts(print, start = c(2009,4), frequency = 4)
+        print <- tail(print, (43 - i))
         lines(print, col="green")
 }
 

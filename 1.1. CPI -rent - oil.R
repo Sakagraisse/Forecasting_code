@@ -63,7 +63,7 @@ checkresiduals(fit)
 spec <- c(4,1,1)
 fit <- arima(cpi_ohne, order = spec)
 fore <- forecast(fit, h = 36)
-
+plot(fore)
 serie <- c(cpi_ohne, fore$mean)
 plot(fore)
 
@@ -116,7 +116,7 @@ end <- nrow(CPIs)
 end <- end - 36
 # Line types
 #iterate from line 36 to the en of CPIs
-for (i in 150:(end+1)){
+for (i in 151:(end+1)){
     temporary <- cpi_ohne[1:(i-1)]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
     end_year <- end(temporary)[1]
@@ -132,10 +132,11 @@ for (i in 150:(end+1)){
     to_save_2 <- fore$mean -  as.numeric(tail(cpi_ohne, 36))
     out_of_sample <- data.frame(out_of_sample, as.numeric(to_save_2))
 }
+# and first column
 Error <- out_of_sample[,-1]
-# Aggregate the data
-Error <- Error^2
-Squared <- rowMeans(Error, na.rm = TRUE)
+#remove last line
+Error_ag <- rowMeans(Error, na.rm = TRUE)
+Error_sq <- rowMeans(Error^2, na.rm = TRUE)
 rm(end, end_month, end_year, fore, i, temporary, to_save, to_save_2)
 
 
@@ -147,7 +148,7 @@ end_b <- nrow(CPIs)
 end_b <- end_b - 36
 # Line types
 #iterate from line 36 to the en of CPIs
-for (i in 150:(end_b+1)){
+for (i in 151:(end_b+1)){
     temporary <- cpi_ohne[1:(i-1)]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
     end_year <- end(temporary)[1]
@@ -163,13 +164,12 @@ for (i in 150:(end_b+1)){
     out_of_sample_b <- data.frame(out_of_sample_b, as.numeric(to_save_2))
 }
 Error_b <- out_of_sample_b[,-1]
-Error_b <- Error_b^2
-Squared_b <- rowMeans(Error_b, na.rm = TRUE)
+Error_b_ag <- rowMeans(Error_b, na.rm = TRUE)
+Error_b_sq <- rowMeans(Error_b^2, na.rm = TRUE)
 
 
 rm(end_b, end_month, end_year, fore, i, temporary, to_save, to_save_2)
-
-MSFE_pred_by_time <- 1 - (Squared/Squared_b)
+MSFE_pred_by_time <- 1 - (Error_sq/Error_b_sq)
 
 
 pdf(paste(getwd(), "/Graphs/double minus/predictive_r_double_minus.pdf", sep=""), width = 13, height = 5)
@@ -235,9 +235,28 @@ for (i in seq(from = 1, to = 100, by = 5)){
 Diebold_DM<- c()
 Diebold_p<- c()
 for(i in 1:36){
-    Diebold_DM[i] <- dm.test(Squared, Squared_b, alternative = "two.sided", h = i, power = 1,varestimator = "bartlett")$statistic
-    Diebold_p[i] <- dm.test(Squared, Squared_b, alternative = "two.sided", h = i, power = 1,varestimator = "bartlett")$p.value
+    Diebold_DM[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$statistic
+    Diebold_p[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$p.value
 }
 
 barplot(Diebold_DM,names.arg = 1:36,main = "Diebold Mariano test by period" )
 barplot(Diebold_p,names.arg = 1:36,main = "Diebold Mariano test by period" )
+
+
+#####
+# save ARIMA
+#####
+
+arima_error <- Error
+#Las column of mean_of_fit
+arima_forecast <- serie
+arima_out <- mean_of_fit
+
+#save
+save(arima_error, arima_forecast, arima_out , file = "arima_forecast.RData")
+
+
+
+AAAAA <- arima_out[,1]
+AAAAA <- AAAAA[1:151]
+AAAAA <- ts(AAAAA, start = c(2000,1), frequency = 12)
