@@ -36,7 +36,7 @@ rm(list = ls())
 current_directory <- getwd()
 
 ######
-# DATA import and tranformation
+# DATA import
 ######
 
 #load data : CPIs.RData
@@ -115,20 +115,20 @@ end <- nrow(CPIs)
 end <- end - 36
 # Line types
 #iterate from line 36 to the en of CPIs
-for (i in 150:end){
-    temporary <- cpi_ohne[1:i-1]
+for (i in 150:(end+1)){
+    temporary <- cpi_ohne[1:(i-1)]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
     end_year <- end(temporary)[1]
     end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
-    fit <- arima(temporary, order = c(4,1,1))
+    fit <- arima(temporary, order = spec)
     fore <- forecast(fit, h = 36)
     #save the mean of the fit
     #convert monthly to quarterly
-    to_save <- c(temporary, fore$mean, rep(NA, end - i + 1))
+    to_save <- c(temporary, fore$mean, rep(NA, (end - i + 1)))
     mean_of_fit <- data.frame(mean_of_fit, to_save)
     #save the error
-    to_save_2 <- (fore$mean - cpi_ohne[i:i+36])
+    to_save_2 <- fore$mean -  as.numeric(tail(cpi_ohne, 36))
     out_of_sample <- data.frame(out_of_sample, as.numeric(to_save_2))
 }
 Error <- out_of_sample[,-1]
@@ -146,8 +146,8 @@ end_b <- nrow(CPIs)
 end_b <- end_b - 36
 # Line types
 #iterate from line 36 to the en of CPIs
-for (i in 150:end_b){
-    temporary <- cpi_ohne[1:i-1]
+for (i in 150:(end_b+1)){
+    temporary <- cpi_ohne[1:(i-1)]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
     end_year <- end(temporary)[1]
     end_month <- end(temporary)[2]
@@ -155,10 +155,10 @@ for (i in 150:end_b){
     fit <- arima(temporary, order = c(1,1,0))
     fore <- forecast(fit, h = 36)
     #save the mean of the fit
-    to_save <- c(temporary, fore$mean, rep(NA, end_b - i + 1))
+    to_save <- c(temporary, fore$mean, rep(NA, (end_b - i + 1)))
     mean_of_fit_b <- data.frame(mean_of_fit_b, to_save)
     #save the error
-    to_save_2 <- (fore$mean - cpi_ohne[i:i+36])
+    to_save_2 <- fore$mean - as.numeric(tail(cpi_ohne, 36))
     out_of_sample_b <- data.frame(out_of_sample_b, as.numeric(to_save_2))
 }
 Error_b <- out_of_sample_b[,-1]
@@ -206,7 +206,7 @@ for (i in seq(from = 1, to = 100, by = 100)){
         print <- (print / lag(print ,12) - 1) * 100
         print <- print[13:length(print)]
         print <- ts(print, start = c(2001,1), frequency = 12)
-        print <- tail(print, 36 + 100 + 6 - i )
+        print <- tail(print,( 36 + 100 + 6 - i ))
         month <- start(print)[2]
 
         if(month %in% c(1,4,7,10)){
@@ -219,7 +219,7 @@ for (i in seq(from = 1, to = 100, by = 100)){
         print <- (print / lag(print ,12) - 1) * 100
         print <- print[13:length(print)]
         print <- ts(print, start = c(2001,1), frequency = 12)
-        print <- tail(print, 36 + 100 + 6 - i)
+        print <- tail(print, (36 + 100 + 6 - i))
         month <- start(print)[2]
         if(month %in% c(1,4,7,10)){
             print <- aggregate(print, nfrequency = 4, FUN = mean)
