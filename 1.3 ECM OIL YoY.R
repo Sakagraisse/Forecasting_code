@@ -155,9 +155,9 @@ create_data_forecast <- function(data_to_use, end_row, steps_ahead) {
   new_rows <- data.frame(matrix(NA, nrow = 36, ncol = ncol(data_forecast)))
   colnames(new_rows) <- colnames(data_forecast)
   data_forecast <- rbind(data_forecast, new_rows)
-  data_forecast$B20[ll+1:steps_ahead] <- rep(tail(data_forecast$B20[ll], 1), steps_ahead)
-  data_forecast$B20_lag1[ll+1:steps_ahead] <- rep(tail(data_forecast$B20[ll], 1), steps_ahead)
-  data_forecast$B20_delta[ll+1:steps_ahead] <- rep(0, steps_ahead)
+  data_forecast$B20[(ll+1:steps_ahead)] <- rep(tail(data_forecast$B20[ll], 1), steps_ahead)
+  data_forecast$B20_lag1[(ll+1:steps_ahead)] <- rep(tail(data_forecast$B20[ll], 1), steps_ahead)
+  data_forecast$B20_delta[(ll+1:steps_ahead)] <- rep(0, steps_ahead)
   #data_forecast$B10_lag1[ll+1:12] <- tail(ECM_Data$B10, 12)
   #continue the date column
   #data_forecast$Date[ll+1:steps_ahead] <- seq(as.Date("2023-10-01"), by = "1 months", length.out = steps_ahead)
@@ -171,18 +171,18 @@ forecast_ECM <- function(data_to_use,starting_row, steps_ahead,results_coeff) {
   # Initialize the forecast dataframe with the last row of ECM_Data
   l_base <- starting_row
   # Iterate for the number of steps you want to forecast
-  for(i in 1:steps_ahead-1) {
+  for(i in 1:(steps_ahead-1)) {
     # Create oil  lag 1
 
-    temp$Petroleum.products_lag1[l_base + i] <- temp$Petroleum.products[l_base + i - 1]
+    temp$Petroleum.products_lag1[(l_base + i)] <- temp$Petroleum.products[(l_base + i - 1)]
     # Calculate long term correction
-    temp$long_term_correction[l_base + i] <- temp$Petroleum.products_lag1[l_base + i] - results_coeff$lm1_1 -results_coeff$lm1_2* temp$B20_lag1[l_base + i]
+    temp$long_term_correction[(l_base + i)] <- temp$Petroleum.products_lag1[(l_base + i)] - results_coeff$lm1_1 -results_coeff$lm1_2* temp$B20_lag1[(l_base + i)]
 
     # Calculate OIL delta
-    temp$Petroleum.products_delta[l_base + i] <- results_coeff$lm2_1  + results_coeff$lm2_3 * temp$long_term_correction[l_base + i]
+    temp$Petroleum.products_delta[(l_base + i)] <- results_coeff$lm2_1  + results_coeff$lm2_3 * temp$long_term_correction[(l_base + i)]
 
     # Update the value of oil
-    temp$Petroleum.products[l_base + i] <- temp$Petroleum.products_lag1[l_base + i] + temp$Petroleum.products_delta[l_base + i]
+    temp$Petroleum.products[(l_base + i)] <- temp$Petroleum.products_lag1[(l_base + i)] + temp$Petroleum.products_delta[(l_base + i)]
 
 
   }
@@ -196,12 +196,12 @@ mean_of_fit <- data.frame(matrix(ncol = 1, nrow = 285))
 end <- nrow(ECM_Data)
 end <- end - 36
 
-for(i in 150:end+1){
+for(i in 150:(end+1)){
     # truncate the number of lines of data
-    cherpa <- create_data_forecast(ECM_Data, i-1, 36)
+    cherpa <- create_data_forecast(ECM_Data, (i-1), 36)
     results_coeff <- the_famous_ECM_coeff(cherpa)
     forecast <- forecast_ECM(cherpa, i ,36, results_coeff)
-    mean_of_fit <- data.frame(mean_of_fit, c(forecast$Petroleum.products,rep(NA,end - i + 1)))
+    mean_of_fit <- data.frame(mean_of_fit, c(forecast$Petroleum.products,rep(NA,(end - i + 1))))
     #calculate the out of sample residuals
     to_save <- (tail(forecast$Petroleum.products,36) - tail(ECM_Data$Petroleum.products,36))
     out_of_sample <- data.frame(out_of_sample, to_save)

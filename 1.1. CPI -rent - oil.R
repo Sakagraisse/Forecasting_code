@@ -60,17 +60,18 @@ fit <- auto.arima(cpi_ohne, seasonal = FALSE, approximation = FALSE, trace=TRUE,
 #check the residuals
 checkresiduals(fit)
 #store specification and serie
-
-fit <- arima(cpi_ohne, order = c(4,1,1))
-fore <- forecast(fit, h = 36)
 spec <- c(4,1,1)
+fit <- arima(cpi_ohne, order = spec)
+fore <- forecast(fit, h = 36)
+
 serie <- c(cpi_ohne, fore$mean)
+plot(fore)
 
 #check stationnarity manually
 cpi_ohne_diff <- diff(cpi_ohne)[2:length(cpi_ohne)-1]
 plot(cpi_ohne_diff, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "CPIs YoY without rent and without petroleum products")
 #check for d with dickey fuller test
-adf.test(cpi_ohne_diff, alternative = "stationary", k = 15)
+adf.test(cpi_ohne_diff, alternative = "stationary")
 ## is stqtionnary
 # check with KPSS
 kpss.test(cpi_ohne_diff, null = "Trend", lshort = TRUE)
@@ -92,7 +93,7 @@ in_sample_MAE <- mean(abs(in_sample_residuals))
 base_stat <- data.frame(in_sample_RMSE, in_sample_MAE)
 rm(in_sample_MAE, in_sample_RMSE)
 # Ljung Box-Q Test
-Ljung <- Box.test(in_sample_residuals, lag = 10, type = "Ljung-Box", fitdf = 5)
+Ljung <- Box.test(in_sample_residuals, type = "Ljung-Box", lag = 10, fitdf = 5)
 # White Test
 Pierce <- Box.test(in_sample_residuals, lag = 10, type = "Box-Pierce", fitdf = 5)
 # jarque bera test
@@ -200,7 +201,7 @@ legend("topleft",           # Position of the legend
        lty = 1)
 
 # "to" needs to be the leght of the series
-for (i in seq(from = 1, to = 100, by = 100)){
+for (i in seq(from = 1, to = 100, by = 5)){
 
         print <- mean_of_fit[,i]
         print <- (print / lag(print ,12) - 1) * 100
@@ -240,9 +241,3 @@ for(i in 1:36){
 
 barplot(Diebold_DM,names.arg = 1:36,main = "Diebold Mariano test by period" )
 barplot(Diebold_p,names.arg = 1:36,main = "Diebold Mariano test by period" )
-
-
-
-######
-# True inflation
-######
