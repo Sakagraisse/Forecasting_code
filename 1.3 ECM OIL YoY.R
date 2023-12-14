@@ -200,7 +200,7 @@ for(i in 150:(end+1)){
     # truncate the number of lines of data
     cherpa <- create_data_forecast(ECM_Data, (i-1), 36)
     results_coeff <- the_famous_ECM_coeff(cherpa)
-    forecast <- forecast_ECM(cherpa, i ,36, results_coeff)
+    forecast <- forecast_ECM(cherpa, i ,12, results_coeff)
     mean_of_fit <- data.frame(mean_of_fit, c(forecast$Petroleum.products,rep(NA,(end - i + 1))))
     #calculate the out of sample residuals
     to_save <- (tail(forecast$Petroleum.products,36) - tail(ECM_Data$Petroleum.products,36))
