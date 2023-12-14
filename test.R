@@ -87,3 +87,16 @@ toto <- ts(toto, start = c(2000,1), frequency = 12)
 lines(toto, type = "l", col = "blue")
 
 
+
+
+######
+# si necessaire
+######
+
+
+#aggregate the error 4 rows by 4 rows
+Error$group <- (seq_len(nrow(Error)) - 1) %/% 3
+Error <- Error %>%
+  group_by(group) %>%
+  summarise(across(everything(), mean, na.rm = TRUE))
+Error <- Error[,-1]

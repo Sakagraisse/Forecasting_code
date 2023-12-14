@@ -115,7 +115,7 @@ end <- nrow(CPIs)
 end <- end - 36
 # Line types
 #iterate from line 36 to the en of CPIs
-for (i in 150:end+1){
+for (i in 150:end){
     temporary <- cpi_ohne[1:i-1]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
     end_year <- end(temporary)[1]
@@ -146,7 +146,7 @@ end_b <- nrow(CPIs)
 end_b <- end_b - 36
 # Line types
 #iterate from line 36 to the en of CPIs
-for (i in 150:end_b+1){
+for (i in 150:end_b){
     temporary <- cpi_ohne[1:i-1]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
     end_year <- end(temporary)[1]
@@ -181,10 +181,10 @@ dev.off()
 ## plot spaghetti graph
 
 temp <- cpi_ohne[1:length(cpi_ohne)]
-cpi_ohne_diff <- log(temp /lag(temp ,12))
-cpi_ohne_diff <- cpi_ohne_diff[13:length(cpi_ohne_diff)]
-cpi_ohne_diff <- ts(cpi_ohne_diff, start = c(2001,1), frequency = 12)
-cpi_ohne_diff <- aggregate(cpi_ohne_diff, nfrequency = 4, FUN = mean)
+cpi_without_approx <- (temp / lag(temp, 12) - 1) * 100
+cpi_without_approx <- cpi_without_approx[13:length(cpi_without_approx)]
+cpi_without_approx <- ts(cpi_without_approx, start = c(2001,1), frequency = 12)
+cpi_without_approx <- aggregate(cpi_without_approx, nfrequency = 4, FUN = mean)
 #remove first column of mean_of_fit
 mean_of_fit <- mean_of_fit[,-1]
 mean_of_fit_b <- mean_of_fit_b[,-1]
@@ -193,21 +193,20 @@ pdf(paste(getwd(), "/Graphs/double minus/spag.pdf", sep=""))
 dev.off()
 
 
-plot(cpi_ohne_diff, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
+plot(cpi_without_approx , type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
 legend("topleft",           # Position of the legend
        legend = c("ARIMA(3,0,0)", "ARIMA(1,0,0)"),  # Legend labels
        col = c("Blue", "Green"),       # Colors
        lty = 1)
 
-
-for (i in seq(from = 1, to = 100, by = 4)){
+# "to" needs to be the leght of the series
+for (i in seq(from = 1, to = 100, by = 100)){
 
         print <- mean_of_fit[,i]
-        print <- log(print /lag(print ,12))
+        print <- (print / lag(print ,12) - 1) * 100
         print <- print[13:length(print)]
         print <- ts(print, start = c(2001,1), frequency = 12)
-        lenene <- length(print)
-        print <- tail(print, 139 - i + 1)
+        print <- tail(print, 36 + 100 + 6 - i )
         month <- start(print)[2]
 
         if(month %in% c(1,4,7,10)){
@@ -217,11 +216,13 @@ for (i in seq(from = 1, to = 100, by = 4)){
 
 
         print <- mean_of_fit_b[,i]
-        print <- log(print /lag(print ,12))
+        print <- (print / lag(print ,12) - 1) * 100
         print <- print[13:length(print)]
         print <- ts(print, start = c(2001,1), frequency = 12)
-        print <- tail(print, 139 - i  + 1)
+        print <- tail(print, 36 + 100 + 6 - i)
+        month <- start(print)[2]
         if(month %in% c(1,4,7,10)){
+            print <- aggregate(print, nfrequency = 4, FUN = mean)
             lines(print, col="green")
         }
 }
@@ -240,19 +241,8 @@ for(i in 1:36){
 barplot(Diebold_DM,names.arg = 1:36,main = "Diebold Mariano test by period" )
 barplot(Diebold_p,names.arg = 1:36,main = "Diebold Mariano test by period" )
 
+
+
 ######
 # True inflation
 ######
-
-
-######
-# si necessaire
-######
-
-
-#aggregate the error 4 rows by 4 rows
-Error$group <- (seq_len(nrow(Error)) - 1) %/% 3
-Error <- Error %>%
-  group_by(group) %>%
-  summarise(across(everything(), mean, na.rm = TRUE))
-Error <- Error[,-1]
