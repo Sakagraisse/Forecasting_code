@@ -216,23 +216,23 @@ legend("topleft",           # Position of the legend
 
 for (i in seq(from = 1, to = 30, by = 6)){
         #keep the i'th column of mean_of_fit
-        print <- mean_of_fit[,i]
+        print <- total_out_q[,i]
         #calculate the YoY
         print <- (print / lag(print ,4) - 1) * 100
 
-        print[1:(19+i-2)] <- NA
+        print[1:(54+i-2)] <- NA
         #create a time series
-        print <- ts(print, start = c(2008,4), frequency = 4)
+        print <- ts(print, start = c(2000,1), frequency = 4)
         lines(print, col="blue")
 
         #same for benchmark model
         #uncomment to plot it
-        print <- mean_of_fit_b[,i]
+        #print <- mean_of_fit_b[,i]
         #calculate the YoY
-        print <- (print / lag(print ,4) - 1) * 100
-        print[1:(19+i -2)] <- NA
+        #print <- (print / lag(print ,4) - 1) * 100
+        #print[1:(54+i -2)] <- NA
         #create a time series
-        print <- ts(print, start = c(2008,4), frequency = 4)
+        #print <- ts(print, start = c(2008,4), frequency = 4)
         #lines(print, col="green")
 
 }
@@ -241,12 +241,16 @@ for (i in seq(from = 1, to = 30, by = 6)){
 #####
 # Out of sample tests Diebold
 ######
+
 Diebold_DM<- c()
 Diebold_p<- c()
+
+#create the Diebold Mariano test for each period
 for(i in 1:12){
     Diebold_DM[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$statistic
     Diebold_p[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$p.value
 }
 
+#plot the Diebold Mariano test
 barplot(Diebold_DM,names.arg = 1:12,main = "Diebold Mariano test by period" )
 barplot(Diebold_p,names.arg = 1:12,main = "Diebold Mariano test by period" )
