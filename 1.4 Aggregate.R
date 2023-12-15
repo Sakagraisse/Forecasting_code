@@ -75,8 +75,8 @@ aggregateYoY <- (aggregate / lag(aggregate, 4) - 1) * 100
 length(aggregateYoY)
 aggregateYoY <- ts(aggregateYoY, start = c(2000,1), frequency = 4)
 
+plot(aggregate)
 plot(aggregateYoY, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "CPIs YoY")
-
 
 
 

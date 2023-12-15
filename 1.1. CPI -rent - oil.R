@@ -56,16 +56,20 @@ lines(cpi_total, col = "blue")
 rm(cpi_total)
 
 #auto arima fit CPIs$Inflation.withoutRI
-fit <- auto.arima(cpi_ohne, seasonal = FALSE, approximation = FALSE, trace=TRUE, stepwise=FALSE)
+fit <- auto.arima(cpi_ohne, seasonal = TRUE, approximation = FALSE, trace=TRUE, stepwise=FALSE)
 #check the residuals
+fore <- forecast(fit, h = 36)
+
+
+
 checkresiduals(fit)
 #store specification and serie
 spec <- c(4,1,1)
-fit <- arima(cpi_ohne, order = spec)
+#fit <- arima(cpi_ohne, order = spec)
 fore <- forecast(fit, h = 36)
 plot(fore)
 serie <- c(cpi_ohne, fore$mean)
-plot(fore)
+plot(serie)
 
 #check stationnarity manually
 cpi_ohne_diff <- diff(cpi_ohne)[2:length(cpi_ohne)-1]
@@ -77,7 +81,7 @@ adf.test(cpi_ohne_diff, alternative = "stationary")
 kpss.test(cpi_ohne_diff, null = "Trend", lshort = TRUE)
 ## is stationnary
 
-rm(cpi_ohne_diff, fore )
+rm(cpi_ohne_diff, fore  )
 
 ######
 # 3 model quality test
@@ -93,7 +97,7 @@ in_sample_MAE <- mean(abs(in_sample_residuals))
 base_stat <- data.frame(in_sample_RMSE, in_sample_MAE)
 rm(in_sample_MAE, in_sample_RMSE)
 # Ljung Box-Q Test
-Ljung <- Box.test(in_sample_residuals, type = "Ljung-Box", lag = 10, fitdf = 5)
+Ljung <- Box.test(in_sample_residuals, type = "Ljung-Box", lag = 8, fitdf = 5)
 # White Test
 Pierce <- Box.test(in_sample_residuals, lag = 10, type = "Box-Pierce", fitdf = 5)
 # jarque bera test
@@ -119,8 +123,6 @@ end <- end - 36
 for (i in 151:(end+1)){
     temporary <- cpi_ohne[1:(i-1)]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
-    end_year <- end(temporary)[1]
-    end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
     fit <- arima(temporary, order = spec)
     fore <- forecast(fit, h = 36)
@@ -129,15 +131,18 @@ for (i in 151:(end+1)){
     to_save <- c(temporary, fore$mean, rep(NA, (end - i + 1)))
     mean_of_fit <- data.frame(mean_of_fit, to_save)
     #save the error
-    to_save_2 <- fore$mean -  as.numeric(tail(cpi_ohne, 36))
+    to_save_2 <- as.numeric(fore$mean) -  as.numeric(cpi_ohne[(i):(i+35)])
     out_of_sample <- data.frame(out_of_sample, as.numeric(to_save_2))
 }
+mean_of_fit <- mean_of_fit[,-1]
 # and first column
 Error <- out_of_sample[,-1]
 #remove last line
 Error_ag <- rowMeans(Error, na.rm = TRUE)
 Error_sq <- rowMeans(Error^2, na.rm = TRUE)
-rm(end, end_month, end_year, fore, i, temporary, to_save, to_save_2)
+
+
+rm(end, fore, fit,  i, temporary, to_save, to_save_2, out_of_sample)
 
 
 ### out of sample forecast for our model
@@ -151,8 +156,6 @@ end_b <- end_b - 36
 for (i in 151:(end_b+1)){
     temporary <- cpi_ohne[1:(i-1)]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
-    end_year <- end(temporary)[1]
-    end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
     fit <- arima(temporary, order = c(1,1,0))
     fore <- forecast(fit, h = 36)
@@ -160,35 +163,37 @@ for (i in 151:(end_b+1)){
     to_save <- c(temporary, fore$mean, rep(NA, (end_b - i + 1)))
     mean_of_fit_b <- data.frame(mean_of_fit_b, to_save)
     #save the error
-    to_save_2 <- fore$mean - as.numeric(tail(cpi_ohne, 36))
+    to_save_2 <- as.numeric(fore$mean) -  as.numeric(cpi_ohne[(i):(i+35)])
     out_of_sample_b <- data.frame(out_of_sample_b, as.numeric(to_save_2))
 }
+mean_of_fit_b <- mean_of_fit_b[,-1]
 Error_b <- out_of_sample_b[,-1]
 Error_b_ag <- rowMeans(Error_b, na.rm = TRUE)
 Error_b_sq <- rowMeans(Error_b^2, na.rm = TRUE)
 
 
-rm(end_b, end_month, end_year, fore, i, temporary, to_save, to_save_2)
+rm(end_b, fit, fore, i, temporary, to_save, to_save_2, out_of_sample_b)
+
+
+######
+# 4 model quality test
+######
 MSFE_pred_by_time <- 1 - (Error_sq/Error_b_sq)
-
-
 pdf(paste(getwd(), "/Graphs/double minus/predictive_r_double_minus.pdf", sep=""), width = 13, height = 5)
-
-barplot(MSFE_pred_by_time,names.arg = 1:36,main = "Predictive R_Squared by period" )
+#keep one value each 3 values
+MSFE_pred_by_time <- MSFE_pred_by_time[seq(1, length(MSFE_pred_by_time), 3)]
+barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period" )
 
 dev.off()
 
 
 ## plot spaghetti graph
 
-temp <- cpi_ohne[1:length(cpi_ohne)]
+temp <- cpi_ohne[1:(length(cpi_ohne))]
 cpi_without_approx <- (temp / lag(temp, 12) - 1) * 100
 cpi_without_approx <- cpi_without_approx[13:length(cpi_without_approx)]
 cpi_without_approx <- ts(cpi_without_approx, start = c(2001,1), frequency = 12)
 cpi_without_approx <- aggregate(cpi_without_approx, nfrequency = 4, FUN = mean)
-#remove first column of mean_of_fit
-mean_of_fit <- mean_of_fit[,-1]
-mean_of_fit_b <- mean_of_fit_b[,-1]
 
 pdf(paste(getwd(), "/Graphs/double minus/spag.pdf", sep=""))
 dev.off()
@@ -201,31 +206,26 @@ legend("topleft",           # Position of the legend
        lty = 1)
 
 # "to" needs to be the leght of the series
-for (i in seq(from = 1, to = 100, by = 5)){
+for (i in seq(from = 1, to = 100, by = 6)){
 
         print <- mean_of_fit[,i]
         print <- (print / lag(print ,12) - 1) * 100
+        print[1:(150+i -4)] <- NA
         print <- print[13:length(print)]
         print <- ts(print, start = c(2001,1), frequency = 12)
-        print <- tail(print,( 36 + 100 + 6 - i ))
-        month <- start(print)[2]
-
-        if(month %in% c(1,4,7,10)){
-            print <- aggregate(print, nfrequency = 4, FUN = mean)
-            lines(print, col="blue")
-        }
+        #replace the first 150 values by NA
+        print <- aggregate(print, nfrequency = 4, FUN = mean)
+        lines(print, col="blue")
 
 
         print <- mean_of_fit_b[,i]
         print <- (print / lag(print ,12) - 1) * 100
+        print[1:(150+i -4)] <- NA
         print <- print[13:length(print)]
         print <- ts(print, start = c(2001,1), frequency = 12)
-        print <- tail(print, (36 + 100 + 6 - i))
-        month <- start(print)[2]
-        if(month %in% c(1,4,7,10)){
-            print <- aggregate(print, nfrequency = 4, FUN = mean)
-            lines(print, col="green")
-        }
+        #replace the first 150 values by NA
+        print <- aggregate(print, nfrequency = 4, FUN = mean)
+        #lines(print, col="green")
 }
 
 
@@ -256,7 +256,7 @@ arima_out <- mean_of_fit
 save(arima_error, arima_forecast, arima_out , file = "arima_forecast.RData")
 
 
-
+plot(arima_forecast)
 AAAAA <- arima_out[,1]
 AAAAA <- AAAAA[1:151]
 AAAAA <- ts(AAAAA, start = c(2000,1), frequency = 12)

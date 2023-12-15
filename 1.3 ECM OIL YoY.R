@@ -192,7 +192,8 @@ pourvoir <- create_data_forecast(ECM_Data, nrow(ECM_Data), 37)
 rownames(pourvoir) <- NULL
 pourvoir2 <- forecast_ECM(pourvoir, nrow(ECM_Data), 37, coeff)
 #generate and store for ECM
-
+plot(pourvoir2$Petroleum.products, type = "l", col = "red")
+plot(pourvoir2$B20)
 out_of_sample <- data.frame(matrix(ncol = 1, nrow = 36))
 mean_of_fit <- data.frame(matrix(ncol = 1, nrow = 286))
 end <- nrow(ECM_Data)
