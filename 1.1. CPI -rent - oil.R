@@ -30,61 +30,66 @@ library(lubridate)
 library(tempdisagg)
 library(openxlsx)
 
-#clean space
+
+######
+# clean space
+######
+
 rm(list = ls())
 # Get the current working directory
 current_directory <- getwd()
 
 ######
-# DATA import
+# DATA importation
 ######
 
 #load data : CPIs.RData
 load("CPIs_double_minus.RData")
 
-
-rm(dataw, monthly_data )
-
 ######
-# 2 Fitting ARIMA model
+# Check Auto Fitting ARIMA model
 ######
-#plot
+#extract the serie of interest
 cpi_ohne <- ts(CPIs$our, start = c(2000,1), frequency = 12)
 plot(cpi_ohne, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
-cpi_total <- ts(CPIs$Total, start = c(2000,1), frequency = 12)
-lines(cpi_total, col = "blue")
-rm(cpi_total)
 
-#auto arima fit CPIs$Inflation.withoutRI
+#auto arima fit CPI - oi - rent
 fit <- auto.arima(cpi_ohne, seasonal = TRUE, approximation = FALSE, trace=TRUE, stepwise=FALSE)
-#check the residuals
+#check residuals
+checkresiduals(fit)
+# forecast using the model
 fore <- forecast(fit, h = 36)
 
-
-
-checkresiduals(fit)
-#store specification and serie
+######
+# Manual Fitting ARIMA model
+######
+#store specification
 spec <- c(4,1,1)
-#fit <- arima(cpi_ohne, order = spec)
+fit <- arima(cpi_ohne, order = spec)
 fore <- forecast(fit, h = 36)
 plot(fore)
 serie <- c(cpi_ohne, fore$mean)
 plot(serie)
 
-#check stationnarity manually
-cpi_ohne_diff <- diff(cpi_ohne)[2:length(cpi_ohne)-1]
+######
+# check stationnarity manually
+######
+
+#compute the difference
+cpi_ohne_diff <- tail(diff(cpi_ohne),(length(cpi_ohne)-1))
 plot(cpi_ohne_diff, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "CPIs YoY without rent and without petroleum products")
-#check for d with dickey fuller test
+
+# check with ADF
 adf.test(cpi_ohne_diff, alternative = "stationary")
-## is stqtionnary
+
 # check with KPSS
-kpss.test(cpi_ohne_diff, null = "Trend", lshort = TRUE)
-## is stationnary
+kpss.test(cpi_ohne_diff, null = "T", lshort = TRUE)
+
 
 rm(cpi_ohne_diff, fore  )
 
 ######
-# 3 model quality test
+# model quality test
 ######
 
 #calculate the in sample residuals
@@ -96,6 +101,7 @@ in_sample_MAE <- mean(abs(in_sample_residuals))
 
 base_stat <- data.frame(in_sample_RMSE, in_sample_MAE)
 rm(in_sample_MAE, in_sample_RMSE)
+
 # Ljung Box-Q Test
 Ljung <- Box.test(in_sample_residuals, type = "Ljung-Box", lag = 8, fitdf = 5)
 # White Test
@@ -114,30 +120,33 @@ rm(Ljung, Pierce, Jarques, White, in_sample_residuals, fit)
 
 ### out of sample forecast for our model
 
+#create matrix to store the datas
 out_of_sample <- data.frame(matrix(ncol = 1, nrow = 36))
 mean_of_fit <- data.frame(matrix(ncol = 1, nrow = nrow(CPIs)))
 end <- nrow(CPIs)
 end <- end - 36
-# Line types
-#iterate from line 36 to the en of CPIs
+
+#forecast from line 151 to the end of CPIs
 for (i in 151:(end+1)){
+    #store the truncted serie for fitting
     temporary <- cpi_ohne[1:(i-1)]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
     #fit arima model on the first i-1 observations
     fit <- arima(temporary, order = spec)
     fore <- forecast(fit, h = 36)
     #save the mean of the fit
-    #convert monthly to quarterly
     to_save <- c(temporary, fore$mean, rep(NA, (end - i + 1)))
     mean_of_fit <- data.frame(mean_of_fit, to_save)
     #save the error
     to_save_2 <- as.numeric(fore$mean) -  as.numeric(cpi_ohne[(i):(i+35)])
     out_of_sample <- data.frame(out_of_sample, as.numeric(to_save_2))
 }
+
+## remove place holder columns
 mean_of_fit <- mean_of_fit[,-1]
-# and first column
 Error <- out_of_sample[,-1]
-#remove last line
+
+#Prepare series for predictive rsquared and Diebold Mariano test
 Error_ag <- rowMeans(Error, na.rm = TRUE)
 Error_sq <- rowMeans(Error^2, na.rm = TRUE)
 
@@ -145,15 +154,17 @@ Error_sq <- rowMeans(Error^2, na.rm = TRUE)
 rm(end, fore, fit,  i, temporary, to_save, to_save_2, out_of_sample)
 
 
-### out of sample forecast for our model
+### out of sample forecast for benchmark model
 
+#create matrix to store the datas
 out_of_sample_b <- data.frame(matrix(ncol = 1, nrow = 36))
 mean_of_fit_b <- data.frame(matrix(ncol = 1, nrow = nrow(CPIs)))
 end_b <- nrow(CPIs)
 end_b <- end_b - 36
-# Line types
-#iterate from line 36 to the en of CPIs
+
+#forecast from line 151 to the end of CPIs benchmark model
 for (i in 151:(end_b+1)){
+    #store the truncted serie for fitting
     temporary <- cpi_ohne[1:(i-1)]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
     #fit arima model on the first i-1 observations
@@ -166,29 +177,37 @@ for (i in 151:(end_b+1)){
     to_save_2 <- as.numeric(fore$mean) -  as.numeric(cpi_ohne[(i):(i+35)])
     out_of_sample_b <- data.frame(out_of_sample_b, as.numeric(to_save_2))
 }
+
+## remove place holder columns
 mean_of_fit_b <- mean_of_fit_b[,-1]
 Error_b <- out_of_sample_b[,-1]
+
+#Prepare series for predictive rsquared and Diebold Mariano test
 Error_b_ag <- rowMeans(Error_b, na.rm = TRUE)
 Error_b_sq <- rowMeans(Error_b^2, na.rm = TRUE)
 
-
 rm(end_b, fit, fore, i, temporary, to_save, to_save_2, out_of_sample_b)
 
+######
+# Predictive R squared
+######
 
-######
-# 4 model quality test
-######
+#calculate the predictive R squared
 MSFE_pred_by_time <- 1 - (Error_sq/Error_b_sq)
+
 pdf(paste(getwd(), "/Graphs/double minus/predictive_r_double_minus.pdf", sep=""), width = 13, height = 5)
-#keep one value each 3 values
-MSFE_pred_by_time <- MSFE_pred_by_time[seq(1, length(MSFE_pred_by_time), 3)]
+# plot it for each quarter
+MSFE_pred_by_time <- MSFE_pred_by_time[seq(1, length(MSFE_pred_by_time), 3)] # first or last month ?
 barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period" )
 
 dev.off()
 
 
-## plot spaghetti graph
+######
+# Plot spaghetti graph
+######
 
+#create the YoY series
 temp <- cpi_ohne[1:(length(cpi_ohne))]
 cpi_without_approx <- (temp / lag(temp, 12) - 1) * 100
 cpi_without_approx <- cpi_without_approx[13:length(cpi_without_approx)]
@@ -198,32 +217,40 @@ cpi_without_approx <- aggregate(cpi_without_approx, nfrequency = 4, FUN = mean)
 pdf(paste(getwd(), "/Graphs/double minus/spag.pdf", sep=""))
 dev.off()
 
-
+#plot the series
 plot(cpi_without_approx , type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
 legend("topleft",           # Position of the legend
        legend = c("ARIMA(3,0,0)", "ARIMA(1,0,0)"),  # Legend labels
        col = c("Blue", "Green"),       # Colors
        lty = 1)
 
-# "to" needs to be the leght of the series
+#plot the out of sample forecast
+#from : choose the first month starting for a quarter in the out of sample forecast
+#to : size of the out of sample forecast (columns of mean_of_fit)
+#by : step of multiple of 6 to get a full quarter each time
 for (i in seq(from = 1, to = 100, by = 6)){
-
+        #keep the i'th column of mean_of_fit
         print <- mean_of_fit[,i]
+        #calculate the YoY
         print <- (print / lag(print ,12) - 1) * 100
+        #remove the first 150 values from displaying
         print[1:(150+i -4)] <- NA
+        #remove first 12 values to align with the YoY
         print <- print[13:length(print)]
+        #convert to time series
         print <- ts(print, start = c(2001,1), frequency = 12)
-        #replace the first 150 values by NA
+        # aggregate to quarterly
         print <- aggregate(print, nfrequency = 4, FUN = mean)
+        #plot
         lines(print, col="blue")
 
-
+        #same for benchmark model
+        #uncomment to plot it
         print <- mean_of_fit_b[,i]
         print <- (print / lag(print ,12) - 1) * 100
         print[1:(150+i -4)] <- NA
         print <- print[13:length(print)]
         print <- ts(print, start = c(2001,1), frequency = 12)
-        #replace the first 150 values by NA
         print <- aggregate(print, nfrequency = 4, FUN = mean)
         #lines(print, col="green")
 }
@@ -232,15 +259,22 @@ for (i in seq(from = 1, to = 100, by = 6)){
 #####
 # Out of sample tests Diebold
 ######
+
 Diebold_DM<- c()
 Diebold_p<- c()
+
+#calculate the Diebold Mariano test for each period
 for(i in 1:36){
     Diebold_DM[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$statistic
     Diebold_p[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$p.value
 }
 
-barplot(Diebold_DM,names.arg = 1:36,main = "Diebold Mariano test by period" )
-barplot(Diebold_p,names.arg = 1:36,main = "Diebold Mariano test by period" )
+#plot the results
+# keep only the first month of each quarter
+Diebold_DM <- Diebold_DM[seq(1, length(Diebold_DM), 3)] # first or last month ?
+barplot(Diebold_DM,names.arg = 1:12,main = "Diebold Mariano test by period" )
+Diebold_p <- Diebold_p[seq(1, length(Diebold_p), 3)]
+barplot(Diebold_p,names.arg = 1:12,main = "Diebold Mariano test by period" )
 
 
 #####
@@ -254,9 +288,3 @@ arima_out <- mean_of_fit
 
 #save
 save(arima_error, arima_forecast, arima_out , file = "arima_forecast.RData")
-
-
-plot(arima_forecast)
-AAAAA <- arima_out[,1]
-AAAAA <- AAAAA[1:151]
-AAAAA <- ts(AAAAA, start = c(2000,1), frequency = 12)
