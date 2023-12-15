@@ -172,8 +172,6 @@ for (i in 20:(end +1)){
     temporary <- ts(temporary, start = c(2008,4), frequency = 4)
     temporary_m <- Mortgage[1:(i-1)]
     temporary_m <- ts(temporary_m, start = c(2008,4), frequency = 4)
-    end_year <- end(temporary)[1]
-    end_month <- end(temporary)[2]
     #fit arimaX model on the first i-1 observations
     fit <- arima(temporary, order = spec_rent, xreg = temporary_m)
     model <- Arima(temporary, model=fit, xreg=temporary_m)
