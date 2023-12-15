@@ -1,6 +1,4 @@
-#clean space
-rm(list = ls())
-# ##import data in excell format from the first table only
+
 if(!require(readxl)) install.packages("readxl")
 if(!require(reshape2)) install.packages("reshape2")
 if(!require(dplyr)) install.packages("dplyr")
@@ -27,14 +25,28 @@ library(tempdisagg)
 library(openxlsx)
 
 ################### code quartely ############################
+#
+######
+# clean space
+######
+
+rm(list = ls())
+# Get the current working directory
+current_directory <- getwd()
 
 ######
-# DATA import and tranformation
+# DATA importation
 ######
 
 rm(list = ls())
 #load data : CPIs.RData
 load("CPIs_double_minus.RData")
+
+
+######
+# Create Rrent CPI and Mortgage time series
+######
+
 Rent <- ts(CPIs$Housing.rental.1, start = c(2000,1), frequency = 12)
 Rent <- aggregate(Rent,4,mean)
 plot(Rent, type = "l", col = "red", xlab = "Year", ylab = "Rent Inflation", main = "CPIs Rent YoY")
@@ -66,26 +78,55 @@ length(Mortgage)
 
 
 ######
-# 2 Fitting ARIMA model
+# Fitting ARIMA model
 ######
+
+#auto arima fit using mortgage as exogenous variable
 fit_X <- auto.arima(Rent, stepwise=FALSE, seasonal = FALSE, approximation = FALSE, trace=TRUE, xreg = Mortgage)
 fit_M <- auto.arima(Mortgage, stepwise=FALSE, seasonal = FALSE, approximation = FALSE, trace=TRUE)
+#set the specification
 spec_rent <- c(2,2,0)
 spec_mortgage <- c(2,2,2)
 
-
+######
+# Manual Fitting ARIMA model
+######
+#fit arima model
 fit_X <- arima(Rent, order = spec_rent, xreg = Mortgage)
+#fit arima model on mortgage
 fit_M <- arima(Mortgage, order = spec_mortgage)
+# create a model to comply with the forecast function
 Model_M <- Arima(Rent, model=fit_X, xreg=Mortgage)
+#forecast mortgage
 Mortgage2 <- forecast(fit_M, h = 12)
 Mortgage2 <- as.numeric(Mortgage2$mean)
+#forecast rent
 Forecast_rent <- forecast(Model_M, xreg = Mortgage2)
+#plot forecast
 plot(Forecast_rent)
 
+# store for future aggregation
 serie <- c(Rent, Forecast_rent$mean)
 
+rm(Mortgage2, Forecast_rent, Model_M, fit_M)
 ######
-# In sample tests
+# check stationnarity manually
+######
+
+#compute the difference
+Rent_diff <- tail(diff(Rent,difference = 2),(length(Rent)-1))
+plot(Rent_diff, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "CPIs YoY without rent and without petroleum products")
+
+# check with ADF
+adf.test(Rent, alternative = "stationary")
+
+# check with KPSS
+kpss.test(Rent, null = "T", lshort = TRUE)
+
+
+rm(Rent_diff, fore)
+######
+# Model quality test
 ######
 
 #calculate the in sample residuals
@@ -97,6 +138,7 @@ in_sample_MAE <- mean(abs(in_sample_residuals))
 
 base_stat <- data.frame(in_sample_RMSE, in_sample_MAE)
 rm(in_sample_MAE, in_sample_RMSE)
+
 # Ljung Box-Q Test
 Ljung <- Box.test(in_sample_residuals, lag = 10, type = "Ljung-Box", fitdf = 3)
 # White Test
@@ -117,23 +159,26 @@ rm(Ljung, Pierce, Jarques, White)
 
 ### out of sample forecast for our model
 
+#create matrix to store the datas
 out_of_sample <- data.frame(matrix(ncol = 1, nrow = 12))
 mean_of_fit <- data.frame(matrix(ncol = 1, nrow = length(Rent)))
 end <- length(Rent)
 end <- end - 12
-# Line types
-#iterate from line 36 to the en of CPIs
-for (i in 20:49){
+
+#forecast from line 21 to the end of date
+for (i in 20:(end +1)){
+    #store the truncated serie for fitting
     temporary <- Rent[1:(i-1)]
     temporary <- ts(temporary, start = c(2008,4), frequency = 4)
     temporary_m <- Mortgage[1:(i-1)]
     temporary_m <- ts(temporary_m, start = c(2008,4), frequency = 4)
     end_year <- end(temporary)[1]
     end_month <- end(temporary)[2]
-    #fit arima model on the first i-1 observations
+    #fit arimaX model on the first i-1 observations
     fit <- arima(temporary, order = spec_rent, xreg = temporary_m)
     model <- Arima(temporary, model=fit, xreg=temporary_m)
     fit_m <- arima(temporary_m, order = spec_mortgage)
+    #forecast mortgage
     fore_m <- forecast(fit_m, h = 12)
     #forecast the i-th observation
     fore <- forecast(model, xreg = fore_m$mean, h = 12)
@@ -141,29 +186,33 @@ for (i in 20:49){
     to_save <- c(temporary, fore$mean, rep(NA, end - i + 1))
     mean_of_fit <- data.frame(mean_of_fit, to_save)
     #save the error
-    to_save_2 <- fore$mean - as.numeric(tail(Rent, 12))
+    to_save_2 <- fore$mean - as.numeric(Rent[(i):(i+11)])
     out_of_sample <- data.frame(out_of_sample, as.numeric(to_save_2))
 }
+## remove place holder columns
+mean_of_fit <- mean_of_fit[,-1]
 Error <- out_of_sample[,-1]
-#remove last line
+
+#Prepare series for predictive rsquared and Diebold Mariano test
 Error_ag <- rowMeans(Error, na.rm = TRUE)
 Error_sq <- rowMeans(Error^2, na.rm = TRUE)
-rm(end, end_month, end_year, fore, i, temporary, to_save, to_save_2)
+rm(end, fore, fit,  i, temporary, temporary_m, to_save, to_save_2, out_of_sample, fit_m, fore_m)
 
 
-### out of sample forecast for our model
+### out of sample forecast for benchmark model
 
+#create matrix to store the datas
 out_of_sample_b <- data.frame(matrix(ncol = 1, nrow = 12))
 mean_of_fit_b <- data.frame(matrix(ncol = 1, nrow = length(Rent)))
 end_b <-length(Rent)
 end_b <- end_b - 12
-# Line types
-#iterate from line 36 to the en of CPIs
-for (i in 20:49){
+
+
+#forecast from line 21 to the end of date benchmark model
+for (i in 20:(end_b+1)){
+    #store the truncated serie for fitting
     temporary <- Rent[1:i-1]
     temporary <- ts(temporary, start = c(2008,4), frequency = 4)
-    end_year <- end(temporary)[1]
-    end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
     fit <- arima(temporary, order = c(1,1,0))
     fore <- forecast(fit, h = 12)
@@ -171,34 +220,45 @@ for (i in 20:49){
     to_save <- c(temporary, fore$mean, rep(NA,( end_b - i + 1)))
     mean_of_fit_b <- data.frame(mean_of_fit_b, to_save)
     #save the error
-    to_save_2 <- fore$mean - as.numeric(tail(Rent, 12))
+    to_save_2 <- as.numeric(fore$mean)  - as.numeric(Rent[(i):(i+11)])
     out_of_sample_b <- data.frame(out_of_sample_b, as.numeric(to_save_2))
 }
+
+## remove place holder columns
+mean_of_fit_b <- mean_of_fit_b[,-1]
 Error_b <- out_of_sample_b[,-1]
+
+#Prepare series for predictive rsquared and Diebold Mariano test
 Error_b_ag <- rowMeans(Error_b, na.rm = TRUE)
 Error_b_sq <- rowMeans(Error_b^2, na.rm = TRUE)
 
+rm(end_b, fore, fit,  i, temporary, to_save, to_save_2, out_of_sample_b)
 
-rm(end_b, end_month, end_year, fore, i, temporary, to_save, to_save_2)
+
+######
+# Predictive R squared
+######
+
+#calculate the predictive R squared
 MSFE_pred_by_time <- 1 - (Error_sq/Error_b_sq)
 
 
 pdf(paste(getwd(), "/Graphs/double minus/predictive_r_double_minus.pdf", sep=""), width = 13, height = 5)
-
 barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period" )
 
 dev.off()
 
 
-## plot spaghetti graph
+######
+# Plot spaghetti graph
+######
 
+#create the YoY series
 temp <- Rent[1:length(Rent)]
 Rent_Y <- (temp / lag(temp, 4) - 1) * 100
 Rent_Y <- Rent_Y[5:length(Rent_Y)]
 Rent_Y <- ts(Rent_Y, start = c(2009,4), frequency = 4)
-#remove first column of mean_of_fit
-mean_of_fit <- mean_of_fit[,-1]
-mean_of_fit_b <- mean_of_fit_b[,-1]
+
 pdf(paste(getwd(), "/Graphs/double minus/spag.pdf", sep=""))
 dev.off()
 plot(Rent_Y, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
@@ -207,21 +267,29 @@ legend("topleft",           # Position of the legend
        col = c("Blue", "Green"),       # Colors
        lty = 1)
 
-
+#plot the out of sample forecast
 for (i in seq(from = 1, to = 30, by = 6)){
+        #keep the i'th column of mean_of_fit
         print <- mean_of_fit[,i]
+        #calculate the YoY
         print <- (print / lag(print ,4) - 1) * 100
-        print <- print[5:length(print)]
-        print <- ts(print, start = c(2009,4), frequency = 4)
-        print <- tail(print, (43 - i))
+
+        print[1:(19+i-2)] <- NA
+        #create a time series
+        print <- ts(print, start = c(2008,4), frequency = 4)
         lines(print, col="blue")
 
+
+        #same for benchmark model
+        #uncomment to plot it
         print <- mean_of_fit_b[,i]
+        #calculate the YoY
         print <- (print / lag(print ,4) - 1) * 100
-        print <- print[5:length(print)]
-        print <- ts(print, start = c(2009,4), frequency = 4)
-        print <- tail(print, (43 - i))
-        lines(print, col="green")
+        print[1:(19+i -2)] <- NA
+        #create a time series
+        print <- ts(print, start = c(2008,4), frequency = 4)
+        #lines(print, col="green")
+
 }
 
 
@@ -231,6 +299,8 @@ for (i in seq(from = 1, to = 30, by = 6)){
 
 Diebold_DM<- c()
 Diebold_p<- c()
+
+#calculate the Diebold Mariano test for each period
 for(i in 1:12){
     Diebold_DM[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$statistic
     Diebold_p[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$p.value
@@ -251,32 +321,3 @@ arimaX_out <- mean_of_fit
 
 #save
 save(arimaX_error, arimaX_forecast, arimaX_out , file = "arimaX_forecast.RData")
-
-length(arimaX_forecast)
-test <- ts(arimaX_forecast, start = c(2008,3), frequency = 4)
-test2 <- ts( Rent, start = c(2008,3), frequency = 4)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

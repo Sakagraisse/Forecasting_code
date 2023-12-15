@@ -1,5 +1,4 @@
 
-# ##import data in excell format from the first table only
 if(!require(readxl)) install.packages("readxl")
 if(!require(reshape2)) install.packages("reshape2")
 if(!require(dplyr)) install.packages("dplyr")
@@ -59,15 +58,17 @@ fit <- auto.arima(cpi_ohne, seasonal = TRUE, approximation = FALSE, trace=TRUE, 
 checkresiduals(fit)
 # forecast using the model
 fore <- forecast(fit, h = 36)
+#set specification
+spec <- c(4,1,1)
 
 ######
 # Manual Fitting ARIMA model
 ######
-#store specification
-spec <- c(4,1,1)
 fit <- arima(cpi_ohne, order = spec)
 fore <- forecast(fit, h = 36)
 plot(fore)
+
+# store for future aggregation
 serie <- c(cpi_ohne, fore$mean)
 plot(serie)
 
@@ -89,7 +90,7 @@ kpss.test(cpi_ohne_diff, null = "T", lshort = TRUE)
 rm(cpi_ohne_diff, fore  )
 
 ######
-# model quality test
+# Model quality test
 ######
 
 #calculate the in sample residuals
@@ -128,7 +129,7 @@ end <- end - 36
 
 #forecast from line 151 to the end of CPIs
 for (i in 151:(end+1)){
-    #store the truncted serie for fitting
+    #store the truncaed serie for fitting
     temporary <- cpi_ohne[1:(i-1)]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
     #fit arima model on the first i-1 observations
@@ -164,7 +165,7 @@ end_b <- end_b - 36
 
 #forecast from line 151 to the end of CPIs benchmark model
 for (i in 151:(end_b+1)){
-    #store the truncted serie for fitting
+    #store the truncated serie for fitting
     temporary <- cpi_ohne[1:(i-1)]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
     #fit arima model on the first i-1 observations
@@ -228,30 +229,27 @@ legend("topleft",           # Position of the legend
 #from : choose the first month starting for a quarter in the out of sample forecast
 #to : size of the out of sample forecast (columns of mean_of_fit)
 #by : step of multiple of 6 to get a full quarter each time
-for (i in seq(from = 1, to = 100, by = 6)){
+for (i in seq(from = 1, to = 100, by = 12)){
         #keep the i'th column of mean_of_fit
         print <- mean_of_fit[,i]
         #calculate the YoY
         print <- (print / lag(print ,12) - 1) * 100
         #remove the first 150 values from displaying
         print[1:(150+i -4)] <- NA
-        #remove first 12 values to align with the YoY
-        print <- print[13:length(print)]
-        #convert to time series
-        print <- ts(print, start = c(2001,1), frequency = 12)
+        print <- ts(print, start = c(2000,1), frequency = 12)
         # aggregate to quarterly
-        print <- aggregate(print, nfrequency = 4, FUN = mean)
+        #print <- aggregate(print, nfrequency = 4, FUN = mean)
         #plot
         lines(print, col="blue")
 
         #same for benchmark model
         #uncomment to plot it
-        print <- mean_of_fit_b[,i]
-        print <- (print / lag(print ,12) - 1) * 100
-        print[1:(150+i -4)] <- NA
-        print <- print[13:length(print)]
-        print <- ts(print, start = c(2001,1), frequency = 12)
-        print <- aggregate(print, nfrequency = 4, FUN = mean)
+        #print <- mean_of_fit_b[,i]
+        #print <- (print / lag(print ,12) - 1) * 100
+        #print[1:(150+i -4)] <- NA
+
+        #print <- ts(print, start = c(2000,1), frequency = 12)
+        #print <- aggregate(print, nfrequency = 4, FUN = mean)
         #lines(print, col="green")
 }
 
