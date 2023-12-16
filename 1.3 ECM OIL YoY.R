@@ -368,3 +368,5 @@ ecm_out <- mean_of_fit
 
 #save
 save(ecm_error, ecm_forecast, ecm_out, file = "ecm_forecast.RData")
+
+plot(ECM_Data$B20_delta)

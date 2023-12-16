@@ -53,11 +53,13 @@ cpi_ohne <- ts(CPIs$our, start = c(2000,1), frequency = 12)
 plot(cpi_ohne, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
 
 #auto arima fit CPI - oi - rent
-fit <- auto.arima(cpi_ohne, seasonal = TRUE, approximation = FALSE, trace=TRUE, stepwise=FALSE)
+fit <- auto.arima(cpi_ohne, seasonal = FALSE, approximation = FALSE, trace=TRUE, stepwise=FALSE)
 #check residuals
 checkresiduals(fit)
 # forecast using the model
 fore <- forecast(fit, h = 36)
+#plot the forecast
+plot(fore)
 #set specification
 spec <- c(4,1,1)
 

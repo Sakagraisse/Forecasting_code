@@ -124,7 +124,7 @@ adf.test(Rent, alternative = "stationary")
 kpss.test(Rent, null = "T", lshort = TRUE)
 
 
-rm(Rent_diff, fore)
+rm(Rent_diff)
 ######
 # Model quality test
 ######
@@ -212,7 +212,7 @@ for (i in 20:(end_b+1)){
     temporary <- Rent[1:i-1]
     temporary <- ts(temporary, start = c(2008,4), frequency = 4)
     #fit arima model on the first i-1 observations
-    fit <- arima(temporary, order = c(1,1,0))
+    fit <- arima(temporary, order = c(1,2,0))
     fore <- forecast(fit, h = 12)
     #save the mean of the fit
     to_save <- c(temporary, fore$mean, rep(NA,( end_b - i + 1)))
@@ -266,7 +266,7 @@ legend("topleft",           # Position of the legend
        lty = 1)
 
 #plot the out of sample forecast
-for (i in seq(from = 1, to = 30, by = 6)){
+for (i in seq(from = 1, to = 30, by = 3)){
         #keep the i'th column of mean_of_fit
         print <- mean_of_fit[,i]
         #calculate the YoY
@@ -286,7 +286,7 @@ for (i in seq(from = 1, to = 30, by = 6)){
         print[1:(19+i -2)] <- NA
         #create a time series
         print <- ts(print, start = c(2008,4), frequency = 4)
-        #lines(print, col="green")
+        lines(print, col="green")
 
 }
 
