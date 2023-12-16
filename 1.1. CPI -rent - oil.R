@@ -206,7 +206,7 @@ MSFE_pred_by_time <- 1 - (Error_sq/Error_b_sq)
 pdf(paste(getwd(), "/Graphs/double minus/predictive_r_double_minus.pdf", sep=""), width = 13, height = 5)
 # plot it for each quarter
 MSFE_pred_by_time <- MSFE_pred_by_time[seq(1, length(MSFE_pred_by_time), 3)] # first or last month ?
-barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period" )
+barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period CPI without oil and rent" )
 
 dev.off()
 
@@ -227,6 +227,7 @@ pdf(paste(getwd(), "/Graphs/double minus/spag_double_minus.pdf", sep=""), width 
 
 #plot the series
 plot(cpi_without_approx , type = "l", col = "blue", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products (1 over 12")
+abline(h = mean(cpi_without_approx, na.rm = TRUE), col = "Black")
 legend("topleft",           # Position of the legend
        legend = c("Observed", "Out-of-Sample Forecast"),  # Legend labels
        col = c("Blue", "Red"),       # Colors
