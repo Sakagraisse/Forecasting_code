@@ -75,6 +75,11 @@ Rent <- tail(Rent, length(Mortgage))
 length(Rent)
 length(Mortgage)
 
+#plot rent with line mortgage with y absice on te right for mortgage rate
+
+
+plot(Rent)
+lines(Mortgage)
 
 
 ######
