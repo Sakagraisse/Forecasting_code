@@ -109,6 +109,26 @@ legend("topleft",           # Position of the legend
 dev.off()
 rm(to_plot, to_plot_2, new_weight, weight_OIL, weight_Rent, weight_Rent_OIL, contri_oil, contri_rent, contri_rent_oil)
 
+######
+# plot true value
+######
+
+CPI_tot <- CPIs$Total
+CPI_tot_YoY <- (CPI_tot / lag(CPI_tot, 12) - 1) * 100
+CPI_tot_YoY <- ts(CPI_tot_YoY, start = c(2000,1), frequency = 12)
+CPI_tot_YoY <- aggregate(CPI_tot_YoY,4,mean)
+
+
+to_plot <- tail(aggregateYoY, 68)
+plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "Aggregated Model")
+to_plot_2 <- tail(aggregateYoY, 13)
+lines(CPI_tot_YoY, col = "red", type = "p")
+abline(h = mean(to_plot), col = "Black")
+legend("topleft",           # Position of the legend
+       legend = c("Observed", "Forecasted", "Mean"),  # Legend labels
+       col = c("Blue", "Red", "Black"),       # Colors
+       lty = 1)
+
 
 ######
 # Out of sample tests comparative
@@ -357,3 +377,5 @@ mz <- xtable(mz)
 print(mz, type = "latex", floating = FALSE, file = (paste(getwd(), "/Graphs/aggregate/Mincer_Z_aggregate.txt", sep="")))
 
 rm(temp1, temp2, regression, mztest, i)
+
+
