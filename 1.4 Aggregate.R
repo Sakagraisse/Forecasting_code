@@ -13,6 +13,9 @@ if(!require(tempdisagg)) install.packages("tempdisagg")
 if(!require(openxlsx)) install.packages("openxlsx")
 if(!require(whitestrap)) install.packages("whitestrap")
 if(!require(lmtest)) install.packages("lmtest")
+if(!require(xtable)) install.packages("xtable")
+
+library(xtable)
 library(lmtest)
 
 library(whitestrap)
@@ -216,9 +219,9 @@ rm(end_b, fore, i, temporary, to_save, to_save_2)
 MSFE_pred_by_time <- 1 - (Error_sq/Error_b_sq)
 
 
-pdf(paste(getwd(), "/Graphs/double minus/predictive_r_double_minus.pdf", sep=""), width = 13, height = 5)
+pdf(paste(getwd(), "/Graphs/aggregate/predictive_r_aggregate.pdf", sep=""), width = 13, height = 5)
 
-barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period" )
+barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period Aggregated" )
 
 dev.off()
 
@@ -231,17 +234,19 @@ cpi_without_approx <- (temp / lag(temp, 4) - 1) * 100
 cpi_without_approx <- cpi_without_approx[5:length(cpi_without_approx)]
 cpi_without_approx <- ts(cpi_without_approx, start = c(2001,1), frequency = 4)
 cpi_without_approx <- tail(cpi_without_approx, 56)
-pdf(paste(getwd(), "/Graphs/aggregate/spag.pdf", sep=""))
-dev.off()
+
+pdf((paste(getwd(), "/Graphs/aggregate/spag.pdf", sep="")), width = 13, height = 5)
 
 
-plot(cpi_without_approx , type = "l", col = "blue", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
+
+plot(cpi_without_approx , type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "Spaghetti graph Aggregated Model (1 over 3)")
+abline(h = mean(cpi_without_approx), col = "Black")
 legend("topleft",           # Position of the legend
        legend = c("Observed", "Out-of-Sample Forecast"),  # Legend labels
        col = c("Blue", "Red"),       # Colors
        lty = 1)
 
-for (i in seq(from = 1, to = 30, by = 6)){
+for (i in seq(from = 1, to = 30, by = 3)){
         #keep the i'th column of mean_of_fit
         print <- mean_of_fit[,i]
         #calculate the YoY
@@ -264,6 +269,7 @@ for (i in seq(from = 1, to = 30, by = 6)){
 
 }
 
+dev.off()
 
 #####
 # Out of sample tests Diebold
@@ -281,3 +287,9 @@ for(i in 1:12){
 #plot the Diebold Mariano test
 barplot(Diebold_DM,names.arg = 1:12,main = "Diebold Mariano test by period" )
 barplot(Diebold_p,names.arg = 1:12,main = "Diebold Mariano test by period" )
+
+diebold_table <- data.frame(seq(1,36,1),Diebold_DM, Diebold_p)
+colnames(diebold_table) <- c("Period", "Diebold Mariano", "p-value")
+latex_table <- xtable(diebold_table)
+print(latex_table, type = "latex", floating = FALSE, file = (paste(getwd(), "/Graphs/aggregate/diebold_aggregate.txt", sep="")))
+
