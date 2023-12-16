@@ -140,9 +140,9 @@ base_stat <- data.frame(in_sample_RMSE, in_sample_MAE)
 rm(in_sample_MAE, in_sample_RMSE)
 
 # Ljung Box-Q Test
-Ljung <- Box.test(in_sample_residuals, lag = 10, type = "Ljung-Box", fitdf = 3)
+Ljung <- Box.test(in_sample_residuals, lag = 12, type = "Ljung-Box", fitdf = 3)
 # White Test
-Pierce <- Box.test(in_sample_residuals, lag = 10, type = "Box-Pierce", fitdf = 3)
+Pierce <- Box.test(in_sample_residuals, lag = 12, type = "Box-Pierce", fitdf = 3)
 # jarque bera test
 Jarques <- jarque.bera.test(in_sample_residuals)
 # White Test
