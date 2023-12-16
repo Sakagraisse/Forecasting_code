@@ -58,6 +58,7 @@ load("CPIs_double_minus.RData")
 cpi_ohne <- ts(CPIs$our, start = c(2000,1), frequency = 12)
 plot(cpi_ohne, type = "l", col = "red", xlab = "Year", ylab = "Index", main = "CPIs without rent and without petroleum products")
 
+
 #auto arima fit CPI - oi - rent
 fit <- auto.arima(cpi_ohne, seasonal = FALSE, approximation = FALSE, trace=TRUE, stepwise=FALSE)
 #check residuals
@@ -66,6 +67,15 @@ checkresiduals(fit)
 fore <- forecast(fit, h = 36)
 #plot the forecast
 plot(fore)
+
+
+
+# Utilisation de auto.arima avec des options spécifiques
+fit <- auto.arima(cpi_ohne, max.P=10, max.Q=10)
+
+# fit contiendra le meilleur modèle selon les critères AIC et BIC
+
+
 #set specification
 spec <- c(4,1,1)
 
@@ -81,6 +91,11 @@ plot(fore)
 serie <- c(cpi_ohne, fore$mean)
 plot(serie)
 
+
+
+# store for future aggregation
+serie <- c(cpi_ohne, fore$mean)
+plot(serie)
 
 
 ######

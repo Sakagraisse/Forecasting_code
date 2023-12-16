@@ -1,5 +1,5 @@
 % latex table generated in R 4.3.1 by xtable 1.8-4 package
-% Sat Dec 16 17:20:00 2023
+% Sat Dec 16 18:26:46 2023
 \begin{tabular}{rrrr}
   \hline
  & Period & Diebold Mariano & p-value \\ 
