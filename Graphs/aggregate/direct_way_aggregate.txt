@@ -1,5 +1,5 @@
 % latex table generated in R 4.3.1 by xtable 1.8-4 package
-% Sat Dec 16 17:04:25 2023
+% Sat Dec 16 17:20:10 2023
 \begin{tabular}{rrr}
   \hline
  & Period & P-value \\ 

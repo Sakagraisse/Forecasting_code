@@ -14,7 +14,10 @@ if(!require(openxlsx)) install.packages("openxlsx")
 if(!require(whitestrap)) install.packages("whitestrap")
 if(!require(lmtest)) install.packages("lmtest")
 if(!require(xtable)) install.packages("xtable")
-
+if (!requireNamespace("car", quietly = TRUE)) {
+  install.packages("car")
+}
+library(car)
 library(xtable)
 library(lmtest)
 
@@ -70,6 +73,7 @@ spec <- c(4,1,1)
 # Manual Fitting ARIMA model
 ######
 fit <- arima(cpi_ohne, order = spec)
+checkresiduals(fit)
 fore <- forecast(fit, h = 36)
 plot(fore)
 
@@ -111,7 +115,7 @@ base_stat <- data.frame(in_sample_RMSE, in_sample_MAE)
 rm(in_sample_MAE, in_sample_RMSE)
 
 # Ljung Box-Q Test
-Ljung <- Box.test(in_sample_residuals, type = "Ljung-Box", lag = 12, fitdf = 5)
+Ljung <- Box.test(in_sample_residuals, type = "Ljung-Box")
 # White Test
 Pierce <- Box.test(in_sample_residuals, lag = 12, type = "Box-Pierce", fitdf = 5)
 # jarque bera test
