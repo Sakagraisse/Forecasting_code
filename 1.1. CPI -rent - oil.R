@@ -74,18 +74,7 @@ plot(fore)
 serie <- c(cpi_ohne, fore$mean)
 plot(serie)
 
-pdf(paste(getwd(), "/Graphs/aggregate/forecast.pdf", sep=""), width = 10, height = 5)
 
-to_plot <- tail(aggregateYoY, 68)
-plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "Aggregated Model")
-to_plot_2 <- tail(aggregateYoY, 13)
-lines(to_plot_2, col = "red")
-abline(h = mean(to_plot), col = "Black")
-legend("topleft",           # Position of the legend
-       legend = c("Observed", "Forecasted", "Mean"),  # Legend labels
-       col = c("Blue", "Red", "Black"),       # Colors
-       lty = 1)
-dev.off()
 
 ######
 # check stationnarity manually
@@ -301,3 +290,25 @@ arima_out <- mean_of_fit
 
 #save
 save(arima_error, arima_forecast, arima_out , file = "arima_forecast.RData")
+
+
+#####
+# plot forecast
+#####
+
+
+to_plot <- (arima_forecast / lag(arima_forecast, 12) - 1) * 100
+to_plot <- ts(to_plot, start = c(2000,1), frequency = 12)
+to_plot <- aggregate(to_plot, nfrequency = 4, FUN = mean)
+to_plot_2 <- tail(to_plot,13)
+to_plot[(length(to_plot)-13):length(to_plot)] <- NA
+plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "Aggregated Model")
+lines(to_plot_2, col = "red")
+abline(h = mean(to_plot), col = "Black")
+legend("topleft",           # Position of the legend
+       legend = c("Observed", "Forecasted", "Mean"),  # Legend labels
+       col = c("Blue", "Red", "Black"),       # Colors
+       lty = 1)
+
+
+pdf(paste(getwd(), "/Graphs/double minus/forecast_double_minus.pdf", sep=""), width = 13, height = 5)

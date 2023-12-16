@@ -66,11 +66,11 @@ contri_oil <- weight_OIL * ecm_forecast/100
 contri_oil <-ts (contri_oil, start = c(2000,1), frequency = 12)
 
 #convert to quarterly
-contri_oil <- aggregate(contri_oil,4,mean)
+contri_oil <- aggregate(contri_oil,nfrequency = 4, FUN = mean)
 
 #convert monthly weight to quarterly weight for Rent
 new_weight<- ts(weight_Rent, start = c(2000,1), frequency = 12)
-new_weight <- aggregate(new_weight,4, mean)
+new_weight <- aggregate(new_weight,nfrequency = 4, FUN = mean)
 
 #contribution of rent
 #Add 35 NA on top of arimaX_forecast to match length of new_weight and oth contribution
@@ -81,7 +81,7 @@ contri_rent <-ts (contri_rent, start = c(2000,1), frequency = 4)
 #contribution of CPI minus rent and oil
 contri_rent_oil <- weight_Rent_OIL * arima_forecast/100
 contri_rent_oil <-ts (contri_rent_oil, start = c(2000,1), frequency = 12)
-contri_rent_oil <- aggregate(contri_rent_oil,4,mean)
+contri_rent_oil <- aggregate(contri_rent_oil,nfrequency = 4, FUN = mean)
 
 # aggregate the 3 contributions
 aggregate <- as.numeric(contri_oil + contri_rent + contri_rent_oil)
@@ -288,7 +288,7 @@ for(i in 1:12){
 barplot(Diebold_DM,names.arg = 1:12,main = "Diebold Mariano test by period" )
 barplot(Diebold_p,names.arg = 1:12,main = "Diebold Mariano test by period" )
 
-diebold_table <- data.frame(seq(1,36,1),Diebold_DM, Diebold_p)
+diebold_table <- data.frame(seq(1,12,1),Diebold_DM, Diebold_p)
 colnames(diebold_table) <- c("Period", "Diebold Mariano", "p-value")
 latex_table <- xtable(diebold_table)
 print(latex_table, type = "latex", floating = FALSE, file = (paste(getwd(), "/Graphs/aggregate/diebold_aggregate.txt", sep="")))
