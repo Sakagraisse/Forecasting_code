@@ -1,5 +1,4 @@
 
-# ##import data in excell format from the first table only
 if(!require(readxl)) install.packages("readxl")
 if(!require(reshape2)) install.packages("reshape2")
 if(!require(dplyr)) install.packages("dplyr")
