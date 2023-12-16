@@ -11,6 +11,9 @@ if(!require(lubridate)) install.packages("lubridate")
 if(!require(zoo)) install.packages("zoo")
 if(!require(tempdisagg)) install.packages("tempdisagg")
 if(!require(openxlsx)) install.packages("openxlsx")
+if(!require(xtable)) install.packages("xtable")
+
+library(xtable)
 library(readxl)
 library(reshape2)
 library(ecm)
@@ -151,9 +154,9 @@ Pierce <- Box.test(in_sample_residuals, lag = 12, type = "Box-Pierce", fitdf = 3
 # jarque bera test
 Jarques <- jarque.bera.test(in_sample_residuals)
 # White Test
-White <- white_test(fit_X)
+#White <- white_test(fit_X)
 
-in_sample_tests <- data.frame(Ljung$p.value, White$p_value, Jarques$p.value,Pierce$p.value)
+#in_sample_tests <- data.frame(Ljung$p.value, White$p_value, Jarques$p.value,Pierce$p.value)
 rm(Ljung, Pierce, Jarques, White)
 
 
@@ -246,7 +249,7 @@ rm(end_b, fore, fit,  i, temporary, to_save, to_save_2, out_of_sample_b)
 MSFE_pred_by_time <- 1 - (Error_sq/Error_b_sq)
 
 
-pdf(paste(getwd(), "/Graphs/double minus/predictive_r_double_minus.pdf", sep=""), width = 13, height = 5)
+pdf(paste(getwd(), "/Graphs/armaX/predictive_r_armaX.pdf", sep=""), width = 13, height = 5)
 barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period" )
 
 dev.off()
@@ -262,12 +265,13 @@ Rent_Y <- (temp / lag(temp, 4) - 1) * 100
 Rent_Y <- Rent_Y[5:length(Rent_Y)]
 Rent_Y <- ts(Rent_Y, start = c(2009,4), frequency = 4)
 
-pdf(paste(getwd(), "/Graphs/double minus/spag.pdf", sep=""))
-dev.off()
-plot(Rent_Y, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
+pdf(paste(getwd(), "/Graphs/armaX/spag_armaX.pdf", sep=""), width = 10, height = 5)
+
+plot(Rent_Y, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs housing rental YoY (1 over 3) ")
+abline(h = mean(Rent_Y, na.rm = TRUE), col = "Black")
 legend("topleft",           # Position of the legend
-       legend = c("ARIMA(3,0,0)", "ARIMA(1,0,0)"),  # Legend labels
-       col = c("Blue", "Green"),       # Colors
+       legend = c("Observed", "Out-of-Sample Forecast"),  # Legend labels
+       col = c("Blue", "Red"),       # Colors
        lty = 1)
 
 #plot the out of sample forecast
@@ -294,7 +298,7 @@ for (i in seq(from = 1, to = 30, by = 3)){
         lines(print, col="green")
 
 }
-
+dev.off()
 
 #####
 # Out of sample tests Diebold
@@ -312,6 +316,10 @@ for(i in 1:12){
 barplot(Diebold_DM,names.arg = 1:12,main = "Diebold Mariano test by period" )
 barplot(Diebold_p,names.arg = 1:12,main = "Diebold Mariano test by period" )
 
+diebold_table <- data.frame(seq(1,12,1),Diebold_DM, Diebold_p)
+colnames(diebold_table) <- c("Period", "Diebold Mariano", "p-value")
+latex_table <- xtable(diebold_table)
+print(latex_table, type = "latex", floating = FALSE, file = (paste(getwd(), "/Graphs/ArmaX/diebold_armaX.txt", sep="")))
 
 #####
 # save ARIMA
@@ -324,3 +332,21 @@ arimaX_out <- mean_of_fit
 
 #save
 save(arimaX_error, arimaX_forecast, arimaX_out , file = "arimaX_forecast.RData")
+
+#####
+# plot forecast
+#####
+
+pdf(paste(getwd(), "/Graphs/armaX/forecast_armaX.pdf", sep=""), width = 10, height = 5)
+to_plot <- (arimaX_forecast / lag(arimaX_forecast, 4) - 1) * 100
+to_plot <- ts(to_plot, start = c(2000,1), frequency = 4)
+to_plot_2 <- tail(to_plot,13)
+#to_plot[(length(to_plot)-11):length(to_plot)] <- NA
+plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "CPI Housing Rent YoY ARMAX (2,2,0) and exogenous Mortgage (2,2,2)")
+lines(to_plot_2, col = "red")
+abline(h = mean(to_plot,, na.rm = TRUE), col = "Black")
+legend("topleft",           # Position of the legend
+       legend = c("Observed", "Forecasted", "Mean"),  # Legend labels
+       col = c("Blue", "Red", "Black"),       # Colors
+       lty = 1)
+dev.off()

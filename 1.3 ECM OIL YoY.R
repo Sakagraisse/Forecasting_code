@@ -275,15 +275,13 @@ Error_b_sq <- rowMeans(Error_b^2, na.rm = TRUE)
 
 rm(end_b, fore, i, temporary, to_save, to_save_2)
 
-
-
 MSFE_pred_by_time <- 1 - (Error_sq/Error_b_sq)
 
 
-pdf(paste(getwd(), "/Graphs/double minus/predictive_r_double_minus.pdf", sep=""), width = 13, height = 5)
+pdf(paste(getwd(), "/Graphs/ECM/predictive_r_ECM.pdf", sep=""), width = 13, height = 5)
 
 MSFE_pred_by_time <- MSFE_pred_by_time[seq(1, length(MSFE_pred_by_time), 3)] # first or last month ?
-barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period" )
+barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period ECM" )
 
 dev.off()
 
@@ -297,15 +295,17 @@ petro <- aggregate(petro, nfrequency = 4, FUN = mean)
 
 
 
-pdf(paste(getwd(), "/Graphs/double minus/spag.pdf", sep=""))
-dev.off()
+pdf(paste(getwd(), "/Graphs/ECM/spag_ECM.pdf", sep=""), width = 10, height = 5)
 
 
-plot(petro , type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
+
+plot(petro , type = "l", col = "blue", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs Petroleum Products ECM with Crude Oil (1 over 3)")
+abline(h = mean(petro, na.rm = TRUE), col = "Black")
 legend("topleft",           # Position of the legend
-       legend = c("ARIMA(3,0,0)", "ARIMA(1,0,0)"),  # Legend labels
-       col = c("Blue", "Green"),       # Colors
+       legend = c("Observed", "Out-of-Sample Forecast"),  # Legend labels
+       col = c("Blue", "Red"),       # Colors
        lty = 1)
+
 
 #plot the out of sample forecast
 #from : choose the first month starting for a quarter in the out of sample forecast
@@ -322,7 +322,7 @@ for (i in seq(from = 1, to = 100, by = 3)){
         # aggregate to quarterly
         print <- aggregate(print, nfrequency = 4, FUN = mean)
         #plot
-        lines(print, col="blue")
+        lines(print, col="red")
 
         #same for benchmark model
         #uncomment to plot it
@@ -334,7 +334,7 @@ for (i in seq(from = 1, to = 100, by = 3)){
         print <- aggregate(print, nfrequency = 4, FUN = mean)
         #lines(print, col="green")
 }
-
+dev.off()
 
 #####
 # Out of sample tests Diebold
@@ -356,6 +356,12 @@ barplot(Diebold_DM,names.arg = 1:12,main = "Diebold Mariano test by period" )
 Diebold_p <- Diebold_p[seq(1, length(Diebold_p), 3)]
 barplot(Diebold_p,names.arg = 1:12,main = "Diebold Mariano test by period" )
 
+diebold_table <- data.frame(seq(1,12,1),Diebold_DM, Diebold_p)
+colnames(diebold_table) <- c("Period", "Diebold Mariano", "p-value")
+latex_table <- xtable(diebold_table)
+print(latex_table, type = "latex", floating = FALSE, file = (paste(getwd(), "/Graphs/ECM/diebold_ECM.txt", sep="")))
+
+
 
 #####
 # save ecm
@@ -369,4 +375,21 @@ ecm_out <- mean_of_fit
 #save
 save(ecm_error, ecm_forecast, ecm_out, file = "ecm_forecast.RData")
 
-plot(ECM_Data$B20_delta)
+#####
+# plot forecast
+#####
+
+pdf(paste(getwd(), "/Graphs/ECM/forecast_ECM.pdf", sep=""), width = 10, height = 5)
+to_plot <- (ecm_forecast / lag(ecm_forecast, 12) - 1) * 100
+to_plot <- ts(to_plot, start = c(2000,1), frequency = 12)
+to_plot <- aggregate(to_plot, nfrequency = 4, FUN = mean)
+to_plot_2 <- tail(to_plot,13)
+to_plot[(length(to_plot)-11):length(to_plot)] <- NA
+plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "CPI Petroleum Products ECM with Crude Oil")
+lines(to_plot_2, col = "red")
+abline(h = mean(to_plot,, na.rm = TRUE), col = "Black")
+legend("topleft",           # Position of the legend
+       legend = c("Observed", "Forecasted", "Mean"),  # Legend labels
+       col = c("Blue", "Red", "Black"),       # Colors
+       lty = 1)
+dev.off()
