@@ -93,7 +93,7 @@ to_plot_2 <- tail(aggregateYoY, 13)
 lines(to_plot_2, col = "red")
 
 
-rm(to_plot, to_plot_2)
+rm(to_plot, to_plot_2, new_weight, weight_OIL, weight_Rent, weight_Rent_OIL, contri_oil, contri_rent, contri_rent_oil)
 
 
 ######
@@ -101,57 +101,78 @@ rm(to_plot, to_plot_2)
 ######
 
 #aggregate the 3 out of sample forecast
-# add 35 row on top of  arimaX_out
+# add 35 row on top of  arimaX_out to start at the same date as other series (2000,1)
 to_add <- data.frame(matrix(NA, nrow = 35, ncol = ncol(arimaX_out)))
 colnames(to_add) <- colnames(arimaX_out)
 arimaX_out <- rbind(to_add, arimaX_out)
-total_out_q <- data.frame(matrix(NA, nrow = (nrow(arimaX_out))))
 
+#create matrix to store the datas
+mean_of_fit <- data.frame(matrix(NA, nrow = (nrow(arimaX_out))))
+
+#create the contribution of oil and CPI without rent and oil for each month forecast
 for(i in seq(1, ncol(arima_out), 1)){
     #select column i of arima_out
-    
     temp1 <- as.numeric(arima_out[,i])
-    temp1 <- temp1 * CPIs$Totalw_o_r /100
+    #select column i of ecm_out
     temp2 <- as.numeric(ecm_out[,i])
+    #compute the contribution
+    temp1 <- temp1 * CPIs$Totalw_o_r /100
+    #compute the contribution
     temp2 <- temp2 * CPIs$W_oil /100
+    #add the two contributions
     temp1 <- ts(temp1, start = c(2000,1), frequency = 12)
     temp2 <- ts(temp2, start = c(2000,1), frequency = 12)
     temp1 <- aggregate(temp1,4,mean)
     temp2 <- aggregate(temp2,4,mean)
     test <- temp1 + temp2
     test <- as.numeric(test)
-    total_out_q <- data.frame(total_out_q, test)
+    mean_of_fit <- data.frame(mean_of_fit, test)
 }
-total_out_q <- total_out_q[,-1]
-#keep one column over 3
-total_out_q <- total_out_q[,seq(1, ncol(total_out_q), 3)]
-total_out_q <- total_out_q[,(ncol(total_out_q) - ncol(arimaX_out) +1):ncol(total_out_q)]
+mean_of_fit <- mean_of_fit[,-1]
+
+
+#keep one column over 3 to have only forecast for from a beginning of quarter
+#check with the date of the first forecast in CPI - rent - oil and ECM
+mean_of_fit<- mean_of_fit[,seq(1, ncol(mean_of_fit), 3)]
+#keep only the forecast matching with those of armaX_out which are in qurterly frequency
+mean_of_fit<- mean_of_fit[,(ncol(mean_of_fit) - ncol(arimaX_out) +1):ncol(mean_of_fit)]
+
+
+## add ArmaX_out to mean_of_fit
+
+#retreive with the same method
 weight_rent <- CPIs$W_housing
 weight_rent <- ts(weight_rent, start = c(2000,1), frequency = 12)
 weight_rent <- aggregate(weight_rent,4,mean)
-total_out_q <- total_out_q + arimaX_out*as.numeric(weight_rent)/100
+#add the contribution of rent
+mean_of_fit <- mean_of_fit + arimaX_out*(as.numeric(weight_rent)/100)
 
+# create a matrix with the true value to compare with the forecast
 #repeat aggregate length(total_out_q) times
-to_sub  <- matrix(aggregate[1:95], nrow = length(aggregate[1:95]), ncol = ncol(total_out_q), byrow = FALSE)
-diff <- total_out_q - to_sub
+to_sub  <- matrix(aggregate[1:95], nrow = length(aggregate[1:95]), ncol = ncol(mean_of_fit), byrow = FALSE)
+#substract the aggregate to the forecast
+out_of_sample <- mean_of_fit - to_sub
+
+#Prepare series for predictive rsquared and Diebold Mariano test
 error <- matrix(NA, nrow = 12)
-for(i in 1:(ncol(diff))){
-    temp <- diff[(i+55-1):(i+66-1),i]
+for(i in 1:(ncol(out_of_sample))){
+    temp <- out_of_sample[(i+55-1):(i+66-1),i]
     error <- data.frame(error, temp)
 }
+## remove place holder columns
 Error <- error[,-1]
 
-#remove last line
+#Prepare series for predictive rsquared and Diebold Mariano test
 Error_ag <- rowMeans(Error, na.rm = TRUE)
 Error_sq <- rowMeans(Error^2, na.rm = TRUE)
 
-rm()
+rm(to_add, to_sub, temp, test, weight_rent, error, i, out_of_sample, temp1, temp2)
 
 ### out of sample forecast for benchmark model
 
 out_of_sample_b <- data.frame(matrix(ncol = 1, nrow = 12))
-mean_of_fit_b <- data.frame(matrix(ncol = 1, nrow = nrow(total_out_q)))
-end_b <- nrow(total_out_q)
+mean_of_fit_b <- data.frame(matrix(ncol = 1, nrow = nrow(mean_of_fit)))
+end_b <- nrow(mean_of_fit)
 end_b <- end_b - 12
 
 #forecast from line 55 to the end of date benchmark model
@@ -179,7 +200,7 @@ Error_b_ag <- rowMeans(Error_b, na.rm = TRUE)
 Error_b_sq <- rowMeans(Error_b^2, na.rm = TRUE)
 
 
-rm(end_b, end_month, end_year, fore, i, temporary, to_save, to_save_2)
+rm(end_b, fore, i, temporary, to_save, to_save_2)
 
 ######
 # Predictive R squared
@@ -216,7 +237,7 @@ legend("topleft",           # Position of the legend
 
 for (i in seq(from = 1, to = 30, by = 6)){
         #keep the i'th column of mean_of_fit
-        print <- total_out_q[,i]
+        print <- mean_of_fit[,i]
         #calculate the YoY
         print <- (print / lag(print ,4) - 1) * 100
 
