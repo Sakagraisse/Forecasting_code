@@ -14,7 +14,8 @@ if(!require(openxlsx)) install.packages("openxlsx")
 if(!require(whitestrap)) install.packages("whitestrap")
 if(!require(lmtest)) install.packages("lmtest")
 if(!require(xtable)) install.packages("xtable")
-
+if(!require(sandwich)) install.packages("sandwich")
+library(sandwich)
 library(xtable)
 library(lmtest)
 
@@ -175,7 +176,7 @@ Error <- error[,-1]
 Error_ag <- rowMeans(Error, na.rm = TRUE)
 Error_sq <- rowMeans(Error^2, na.rm = TRUE)
 
-rm(to_add, to_sub, temp, test, weight_rent, error, i, out_of_sample, temp1, temp2)
+rm(to_add, temp, test, weight_rent, error, i, out_of_sample, temp1, temp2)
 
 ### out of sample forecast for benchmark model
 
@@ -292,4 +293,65 @@ diebold_table <- data.frame(seq(1,12,1),Diebold_DM, Diebold_p)
 colnames(diebold_table) <- c("Period", "Diebold Mariano", "p-value")
 latex_table <- xtable(diebold_table)
 print(latex_table, type = "latex", floating = FALSE, file = (paste(getwd(), "/Graphs/aggregate/diebold_aggregate.txt", sep="")))
+
+
+######
+# Error = 0 ?
+######
+
+direct_way <- matrix(NA, nrow = 12)
+for (i in 1:12){
+    regression <- lm(as.numeric(Error[i,]) ~ 1)
+    test <- coeftest(regression, vcov = vcovHC(regression, type = "HC0"))
+    direct_way[i] <- test[[4]]
+}
+
+
+direct_way <- data.frame(seq(1,12,1),direct_way)
+colnames(direct_way) <- c("Period", "P-value")
+direct_way <- xtable(direct_way)
+print(direct_way, type = "latex", floating = FALSE, file = (paste(getwd(), "/Graphs/aggregate/direct_way_aggregate.txt", sep="")))
+
+######
+# Mincer Zarnowitz
+######
+
+out_sample <- mean_of_fit
+true_value <- to_sub
+
+out_sample_aligned <- matrix(NA, nrow = 12)
+for(i in 1:(ncol(out_sample))){
+    temp <- out_sample[(i+55-1):(i+66-1),i]
+    out_sample_aligned <- data.frame(out_sample_aligned, temp)
+}
+
+out_sample_aligned <- out_sample_aligned[,-1]
+
+true_value_aligned <- matrix(NA, nrow = 12)
+for(i in 1:(ncol(true_value))){
+    temp <- true_value[(i+55-1):(i+66-1),i]
+    true_value_aligned <- data.frame(true_value_aligned, temp)
+}
+
+true_value_aligned <- true_value_aligned[,-1]
+
+
+
+# do regression
+regression <- lm(as.numeric(true_value_aligned[1,]) ~ as.numeric(out_sample_aligned[1,]))
+
+regression2 <- lm(as.numeric(Error[1,]) ~ 1)
+test <- coeftest(regression2, vcov = vcovHC(regression, type = "HC0"))
+
+
+
+# Test alpha = 0
+alpha_test <- coeftest(regression, vcov = vcovHC(regression, type = "HC0"), hypothesis = "intercept = 0")
+alpha_test <- alpha_test[[4]]
+# Test beta = 1
+beta_test <- coeftest(regression, vcov = vcovHC(regression, type = "HC0"), hypothesis = "out_sample_aligned[12,] = 1" )
+beta_test <-
+
+  coeftest(regression, vcov. = vcovHC(regression, type = "HC0"), hypothesis = c("(Intercept)" = 0, "as.numeric(out_sample_aligned[12,])" = 100))
+
 
