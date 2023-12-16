@@ -74,6 +74,19 @@ plot(fore)
 serie <- c(cpi_ohne, fore$mean)
 plot(serie)
 
+pdf(paste(getwd(), "/Graphs/aggregate/forecast.pdf", sep=""), width = 10, height = 5)
+
+to_plot <- tail(aggregateYoY, 68)
+plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "Aggregated Model")
+to_plot_2 <- tail(aggregateYoY, 13)
+lines(to_plot_2, col = "red")
+abline(h = mean(to_plot), col = "Black")
+legend("topleft",           # Position of the legend
+       legend = c("Observed", "Forecasted", "Mean"),  # Legend labels
+       col = c("Blue", "Red", "Black"),       # Colors
+       lty = 1)
+dev.off()
+
 ######
 # check stationnarity manually
 ######
