@@ -316,6 +316,7 @@ colnames(direct_way) <- c("Period", "P-value")
 direct_way <- xtable(direct_way)
 print(direct_way, type = "latex", floating = FALSE, file = (paste(getwd(), "/Graphs/aggregate/direct_way_aggregate.txt", sep="")))
 
+rm(regression, test)
 ######
 # Mincer Zarnowitz
 ######
@@ -354,3 +355,5 @@ mz <- data.frame(seq(1,12,1),mz)
 colnames(mz) <- c("Period", "P-value")
 mz <- xtable(mz)
 print(mz, type = "latex", floating = FALSE, file = (paste(getwd(), "/Graphs/aggregate/Mincer_Z_aggregate.txt", sep="")))
+
+rm(temp1, temp2, regression, mztest, i)
