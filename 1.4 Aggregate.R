@@ -87,12 +87,18 @@ aggregateYoY <- (aggregate / lag(aggregate, 4) - 1) * 100
 aggregateYoY <- ts(aggregateYoY, start = c(2000,1), frequency = 4)
 
 #plot the aggregate YoY
+pdf(paste(getwd(), "/Graphs/aggregate/forecast.pdf", sep=""), width = 10, height = 5)
+
 to_plot <- tail(aggregateYoY, 68)
-plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation", main = "CPIs YoY")
+plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "Aggregated Model")
 to_plot_2 <- tail(aggregateYoY, 13)
 lines(to_plot_2, col = "red")
-
-
+abline(h = mean(to_plot), col = "Black")
+legend("topleft",           # Position of the legend
+       legend = c("Observed", "Forecasted", "Mean"),  # Legend labels
+       col = c("Blue", "Red", "Black"),       # Colors
+       lty = 1)
+dev.off()
 rm(to_plot, to_plot_2, new_weight, weight_OIL, weight_Rent, weight_Rent_OIL, contri_oil, contri_rent, contri_rent_oil)
 
 
@@ -225,14 +231,14 @@ cpi_without_approx <- (temp / lag(temp, 4) - 1) * 100
 cpi_without_approx <- cpi_without_approx[5:length(cpi_without_approx)]
 cpi_without_approx <- ts(cpi_without_approx, start = c(2001,1), frequency = 4)
 cpi_without_approx <- tail(cpi_without_approx, 56)
-pdf(paste(getwd(), "/Graphs/double minus/spag.pdf", sep=""))
+pdf(paste(getwd(), "/Graphs/aggregate/spag.pdf", sep=""))
 dev.off()
 
 
-plot(cpi_without_approx , type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
+plot(cpi_without_approx , type = "l", col = "blue", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
 legend("topleft",           # Position of the legend
-       legend = c("ARIMA(3,0,0)", "ARIMA(1,0,0)"),  # Legend labels
-       col = c("Blue", "Green"),       # Colors
+       legend = c("Observed", "Out-of-Sample Forecast"),  # Legend labels
+       col = c("Blue", "Red"),       # Colors
        lty = 1)
 
 for (i in seq(from = 1, to = 30, by = 6)){
@@ -244,7 +250,7 @@ for (i in seq(from = 1, to = 30, by = 6)){
         print[1:(54+i-2)] <- NA
         #create a time series
         print <- ts(print, start = c(2000,1), frequency = 4)
-        lines(print, col="blue")
+        lines(print, col="Red")
 
         #same for benchmark model
         #uncomment to plot it
