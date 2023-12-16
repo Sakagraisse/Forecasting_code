@@ -13,6 +13,9 @@ if(!require(tempdisagg)) install.packages("tempdisagg")
 if(!require(openxlsx)) install.packages("openxlsx")
 if(!require(whitestrap)) install.packages("whitestrap")
 if(!require(lmtest)) install.packages("lmtest")
+if(!require(xtable)) install.packages("xtable")
+
+library(xtable)
 library(lmtest)
 
 library(whitestrap)
@@ -219,14 +222,14 @@ cpi_without_approx <- cpi_without_approx[13:length(cpi_without_approx)]
 cpi_without_approx <- ts(cpi_without_approx, start = c(2001,1), frequency = 12)
 cpi_without_approx <- aggregate(cpi_without_approx, nfrequency = 4, FUN = mean)
 
-pdf(paste(getwd(), "/Graphs/double minus/spag.pdf", sep=""))
-dev.off()
+pdf(paste(getwd(), "/Graphs/double minus/spag_double_minus.pdf", sep=""), width = 13, height = 5)
+
 
 #plot the series
-plot(cpi_without_approx , type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products")
+plot(cpi_without_approx , type = "l", col = "blue", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs YoY without rent and without petroleum products (1 over 12")
 legend("topleft",           # Position of the legend
-       legend = c("ARIMA(3,0,0)", "ARIMA(1,0,0)"),  # Legend labels
-       col = c("Blue", "Green"),       # Colors
+       legend = c("Observed", "Out-of-Sample Forecast"),  # Legend labels
+       col = c("Blue", "Red"),       # Colors
        lty = 1)
 
 #plot the out of sample forecast
@@ -244,7 +247,7 @@ for (i in seq(from = 1, to = 100, by = 12)){
         # aggregate to quarterly
         print <- aggregate(print, nfrequency = 4, FUN = mean)
         #plot
-        lines(print, col="blue")
+        lines(print, col="red")
 
         #same for benchmark model
         #uncomment to plot it
@@ -256,7 +259,7 @@ for (i in seq(from = 1, to = 100, by = 12)){
         #print <- aggregate(print, nfrequency = 4, FUN = mean)
         #lines(print, col="green")
 }
-
+dev.off()
 
 #####
 # Out of sample tests Diebold
@@ -278,6 +281,11 @@ barplot(Diebold_DM,names.arg = 1:12,main = "Diebold Mariano test by period" )
 Diebold_p <- Diebold_p[seq(1, length(Diebold_p), 3)]
 barplot(Diebold_p,names.arg = 1:12,main = "Diebold Mariano test by period" )
 
+diebold_table <- data.frame(seq(1,12,1),Diebold_DM, Diebold_p)
+colnames(diebold_table) <- c("Period", "Diebold Mariano", "p-value")
+latex_table <- xtable(diebold_table)
+print(latex_table, type = "latex", floating = FALSE, file = (paste(getwd(), "/Graphs/double minus/diebold_ohne.txt", sep="")))
+
 
 #####
 # save ARIMA
@@ -296,19 +304,17 @@ save(arima_error, arima_forecast, arima_out , file = "arima_forecast.RData")
 # plot forecast
 #####
 
-
+pdf(paste(getwd(), "/Graphs/double minus/forecast_double_minus.pdf", sep=""), width = 10, height = 5)
 to_plot <- (arima_forecast / lag(arima_forecast, 12) - 1) * 100
 to_plot <- ts(to_plot, start = c(2000,1), frequency = 12)
 to_plot <- aggregate(to_plot, nfrequency = 4, FUN = mean)
 to_plot_2 <- tail(to_plot,13)
-to_plot[(length(to_plot)-13):length(to_plot)] <- NA
-plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "Aggregated Model")
+to_plot[(length(to_plot)-11):length(to_plot)] <- NA
+plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "CPI without oil and rent ARIMA (4,1,1)")
 lines(to_plot_2, col = "red")
-abline(h = mean(to_plot), col = "Black")
+abline(h = mean(to_plot,, na.rm = TRUE), col = "Black")
 legend("topleft",           # Position of the legend
        legend = c("Observed", "Forecasted", "Mean"),  # Legend labels
        col = c("Blue", "Red", "Black"),       # Colors
        lty = 1)
-
-
-pdf(paste(getwd(), "/Graphs/double minus/forecast_double_minus.pdf", sep=""), width = 13, height = 5)
+dev.off()
