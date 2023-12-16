@@ -25,12 +25,16 @@ library(lubridate)
 library(tempdisagg)
 library(openxlsx)
 
-#clean space
+######
+# clean space
+######
+
 rm(list = ls())
-## import the data ##
+# Get the current working directory
+current_directory <- getwd()
 
 ######
-# 1 Crude oil price
+# 1 DATA importation
 ######
 #import MCOILWTICO.csv
 ECM_Data <- read.csv("MCOILWTICO.csv", header = TRUE, sep = ",")
@@ -59,7 +63,7 @@ ECM_Data$OIL_CHF <- ECM_Data$MCOILWTICO * ECM_Data$USD_to_CHF
 ECM_Data$B20 <- (ECM_Data$OIL_CHF / ECM_Data$OIL_CHF[which(ECM_Data$Date == "2020-12-01")] ) * 100
 
 ######
-# 2 Petroleum Products
+# Petroleum Products
 ######
 load("CPIs.RData")
 
@@ -80,7 +84,7 @@ plot(ECM_Data$B20ts , type = "l", col = "red")
 lines(ECM_Data$Petroleum.productsts, type = "l", col = "blue")
 
 ######
-# 4 perfom checks before ECM
+# perfom checks before ECM
 ######
 #check for stationarity of the data
 adf.test(ECM_Data$B20)
@@ -90,18 +94,21 @@ adf.test(ECM_Data$Petroleum.products)
 #non stationnarity satisfied
 
 #check for cointegration between the two time series using urca package
-test <- ca.jo(ECM_Data[,c(5,9)], type = "trace", ecdet = "const", K = 2, spec = "transitory")
+test_co_integration <- ca.jo(data.frame(ECM_Data$B20,ECM_Data$Petroleum.products), type = "trace", ecdet = "const", K = 2, spec = "transitory")
 #display the results
-summary(test)
+summary(test_co_integration)
 
 
 ######
-# 5 estimate the ecm
+# Estimate the ecm
 ######
+
+# Create a function that estimates the ecm
+# and output the results of the dataframe
 the_famous_ECM <- function (data){
 lm1 <- lm(data$Petroleum.products~data$B20) #Create the linear regression
 
-#create a lag ofe one for OIL and B10
+#create a lag of one for OIL and B10
 data$B20_lag1 <- lag(data$B20,1)
 data$Petroleum.products_lag1 <- lag(data$Petroleum.products,1)
 #create a delta of OIL and B10
@@ -114,7 +121,8 @@ lm2 <- lm(data$Petroleum.products_delta~data$B20_delta + data$long_term_correcti
 
 return(data)
 }
-
+# Create a function that estimates the ecm
+# and output the coefficients of each regression
 the_famous_ECM_coeff <- function (data){
 lm1 <- lm(data$Petroleum.products~data$B20) #Create the linear regression
 
@@ -141,19 +149,22 @@ return(df)
 ECM_Data <- the_famous_ECM(ECM_Data)
 coeff <- the_famous_ECM_coeff(ECM_Data)
 
-
-#marche pas mais pas grave pour l'instant
-
 ######
-# 5 Predictions
+# Predictions
 ######
 
 #create function to create data_forcast from different lenghts of row ECM_Data
+# in other word, create a dataframe with the last row of ECM_Data and the number of rows you want to forecast
+# using a random walk for the last row of B20
+# and leave empty the rest of the rows
 create_data_forecast <- function(data_to_use, end_row, steps_ahead) {
   data_forecast <- data_to_use[1:end_row,]
+  # add the required number of rows by empty rows
   ll <- length(data_forecast$B20)
   new_rows <- data.frame(matrix(NA, nrow = steps_ahead, ncol = ncol(data_forecast)))
   colnames(new_rows) <- colnames(data_forecast)
+
+  #fill the empty rows with the last row of ECM_Data for B20
   data_forecast <- rbind(data_forecast, new_rows)
   data_forecast$B20[(ll+1:steps_ahead)] <- rep(tail(data_forecast$B20[ll], 1), steps_ahead)
   data_forecast$B20_lag1[(ll+1:steps_ahead)] <- rep(tail(data_forecast$B20[ll], 1), steps_ahead)
@@ -166,19 +177,20 @@ create_data_forecast <- function(data_to_use, end_row, steps_ahead) {
 
 # Function to forecast future values
 forecast_ECM <- function(data_to_use,starting_row, steps_ahead,results_coeff) {
+  # copy to a temporary dataframe
   temp <- data_to_use
   # Initialize the forecast dataframe with the last row of ECM_Data
   l_base <- starting_row
   # Iterate for the number of steps you want to forecast
-  for(i in 1 :(steps_ahead-1)) {
-    # Create oil  lag 1
-
+  for(i in 1 :(steps_ahead)) {
+    # Create petrol  lag 1
     temp$Petroleum.products_lag1[(l_base + i)] <- temp$Petroleum.products[(l_base + i - 1)]
     # Calculate long term correction
     temp$long_term_correction[(l_base + i)] <- temp$Petroleum.products_lag1[(l_base + i)] - results_coeff$lm1_1 -results_coeff$lm1_2* temp$B20_lag1[(l_base + i)]
-
-    # Calculate OIL delta
-    temp$Petroleum.products_delta[(l_base + i)] <- results_coeff$lm2_1  + results_coeff$lm2_3 * temp$long_term_correction[(l_base + i)]
+    # calculate B20 delta
+    temp$B20_delta[(l_base + i)] <- temp$B20[(l_base + i)] - temp$B20_lag1[(l_base + i)]
+    # Calculate petroleum products delta
+    temp$Petroleum.products_delta[(l_base + i)] <- results_coeff$lm2_1 + results_coeff$lm2_2 * temp$B20_delta[(l_base + i)] + results_coeff$lm2_3 * temp$long_term_correction[(l_base + i)]
 
     # Update the value of oil
     temp$Petroleum.products[(l_base + i)] <- temp$Petroleum.products_lag1[(l_base + i)] + temp$Petroleum.products_delta[(l_base + i)]
@@ -188,32 +200,40 @@ forecast_ECM <- function(data_to_use,starting_row, steps_ahead,results_coeff) {
   return(temp)
 }
 
-pourvoir <- create_data_forecast(ECM_Data, nrow(ECM_Data), 37)
+#create the main forecast and store it
+pourvoir <- create_data_forecast(ECM_Data, nrow(ECM_Data), 36)
+#remove index due to specificities of R dataframe storing row truncated form ts
 rownames(pourvoir) <- NULL
-pourvoir2 <- forecast_ECM(pourvoir, nrow(ECM_Data), 37, coeff)
-#generate and store for ECM
-plot(pourvoir2$Petroleum.products, type = "l", col = "red")
-plot(pourvoir2$B20)
+pourvoir2 <- forecast_ECM(pourvoir, nrow(ECM_Data), 36, coeff)
+
+
+### out of sample forecast for benchmark model
+
+#create matrix to store the datas
 out_of_sample <- data.frame(matrix(ncol = 1, nrow = 36))
-mean_of_fit <- data.frame(matrix(ncol = 1, nrow = 286))
+mean_of_fit <- data.frame(matrix(ncol = 1, nrow = 285))
 end <- nrow(ECM_Data)
 end <- end - 36
 
+#iterate from line 151 to the en of CPIs (not the same index as other function...
+#due to personnalized function)
 for(i in (150):(end)){
     # truncate the number of lines of data
-    cherpa <- create_data_forecast(ECM_Data, i, 37)
+    cherpa <- create_data_forecast(ECM_Data, i, 36)
     rownames(cherpa) <- NULL
     #fit arima model on the first i-1 - 37 observations
     results_coeff <- the_famous_ECM_coeff(head(cherpa, i))
-    forecast <- forecast_ECM(cherpa, i ,37, results_coeff)
-    mean_of_fit <- data.frame(mean_of_fit, c(forecast$Petroleum.products,rep(NA,(end + 36 + 1 - length(forecast$Petroleum.products)))))
+    forecast <- forecast_ECM(cherpa, i ,36, results_coeff)
+    mean_of_fit <- data.frame(mean_of_fit, c(forecast$Petroleum.products,rep(NA,(end + 36 - length(forecast$Petroleum.products)))))
     #calculate the out of sample residuals
     to_save <- forecast$Petroleum.products[(i+1):(i+36)] - ECM_Data$Petroleum.products[(i+1):(i+36)]
     out_of_sample <- data.frame(out_of_sample, to_save)
 }
-# and first column
+## remove place holder columns
+mean_of_fit <- mean_of_fit[,-1]
 Error <- out_of_sample[,-1]
-#remove last line
+
+#Prepare series for predictive rsquared and Diebold Mariano test
 Error_ag <- rowMeans(Error, na.rm = TRUE)
 Error_sq <- rowMeans(Error^2, na.rm = TRUE)
 
@@ -221,8 +241,9 @@ Error_sq <- rowMeans(Error^2, na.rm = TRUE)
 
 
 
-### out of sample forecast for dumb
+### out of sample forecast for benchmark model
 
+#create matrix to store the datas
 temp <- ECM_Data$Petroleum.products
 rownames(temp) <- NULL
 out_of_sample_b <- data.frame(matrix(ncol = 1, nrow = 36))
@@ -230,12 +251,11 @@ mean_of_fit_b <- data.frame(matrix(ncol = 1, nrow = length(temp)))
 end_b <- length(temp)
 end_b <- end_b - 36
 # Line types
-#iterate from line 36 to the en of CPIs
+#forecast from line 151 to the end of CPIs benchmark model
 for (i in 151:(end_b+1)){
+    #store the truncated serie for fitting
     temporary <- temp[1:(i-1)]
     temporary <- ts(temporary, start = c(2000,1), frequency = 12)
-    end_year <- end(temporary)[1]
-    end_month <- end(temporary)[2]
     #fit arima model on the first i-1 observations
     fit <- arima(temporary, order = c(1,1,0))
     fore <- forecast(fit, h = 36)
@@ -243,13 +263,18 @@ for (i in 151:(end_b+1)){
     to_save <- c(temporary, fore$mean, rep(NA, (end_b - i + 1)))
     mean_of_fit_b <- data.frame(mean_of_fit_b, to_save)
     #save the error
-    to_save_2 <- fore$mean - as.numeric(tail(temp, 36))
+    to_save_2 <- fore$mean -  as.numeric(temp[(i):(i+35)])
     out_of_sample_b <- data.frame(out_of_sample_b, as.numeric(to_save_2))
 }
+## remove place holder columns
+mean_of_fit_b <- mean_of_fit_b[,-1]
 Error_b <- out_of_sample_b[,-1]
+
+#Prepare series for predictive rsquared and Diebold Mariano test
 Error_b_ag <- rowMeans(Error_b, na.rm = TRUE)
 Error_b_sq <- rowMeans(Error_b^2, na.rm = TRUE)
-rm(end_b, end_month, end_year, fore, i, temporary, to_save, to_save_2, Error_mean_by_time_b)
+
+rm(end_b, fore, i, temporary, to_save, to_save_2)
 
 
 
@@ -258,7 +283,8 @@ MSFE_pred_by_time <- 1 - (Error_sq/Error_b_sq)
 
 pdf(paste(getwd(), "/Graphs/double minus/predictive_r_double_minus.pdf", sep=""), width = 13, height = 5)
 
-barplot(MSFE_pred_by_time,names.arg = 1:36,main = "Predictive R_Squared by period" )
+MSFE_pred_by_time <- MSFE_pred_by_time[seq(1, length(MSFE_pred_by_time), 3)] # first or last month ?
+barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period" )
 
 dev.off()
 
@@ -269,10 +295,8 @@ petro <- (temp / lag(temp, 12) - 1) * 100
 petro <- petro[13:length(petro)]
 petro <- ts(petro, start = c(2001,1), frequency = 12)
 petro <- aggregate(petro, nfrequency = 4, FUN = mean)
-#remove first column of mean_of_fit
-mean_of_fit <- mean_of_fit[,-1]
-mean_of_fit <- head(mean_of_fit, (nrow(mean_of_fit)-1))
-mean_of_fit_b <- mean_of_fit_b[,-1]
+
+
 
 pdf(paste(getwd(), "/Graphs/double minus/spag.pdf", sep=""))
 dev.off()
@@ -284,47 +308,54 @@ legend("topleft",           # Position of the legend
        col = c("Blue", "Green"),       # Colors
        lty = 1)
 
-# "to" needs to be the leght of the series
-for (i in seq(from = 1, to = 100, by = 5)){
-
+#plot the out of sample forecast
+#from : choose the first month starting for a quarter in the out of sample forecast
+#to : size of the out of sample forecast (columns of mean_of_fit)
+#by : step of multiple of 6 to get a full quarter each time
+for (i in seq(from = 1, to = 100, by = 3)){
+        #keep the i'th column of mean_of_fit
         print <- mean_of_fit[,i]
+        #calculate the YoY
         print <- (print / lag(print ,12) - 1) * 100
-        print <- print[13:length(print)]
-        print <- ts(print, start = c(2001,1), frequency = 12)
-        print <- tail(print,( 36 + 100 + 6 - i ))
-        month <- start(print)[2]
+        #remove the first 150 values from displaying
+        print[1:(150+i -4)] <- NA
+        print <- ts(print, start = c(2000,1), frequency = 12)
+        # aggregate to quarterly
+        print <- aggregate(print, nfrequency = 4, FUN = mean)
+        #plot
+        lines(print, col="blue")
 
-        if(month %in% c(1,4,7,10)){
-            print <- aggregate(print, nfrequency = 4, FUN = mean)
-            lines(print, col="blue")
-        }
-
-
+        #same for benchmark model
+        #uncomment to plot it
         print <- mean_of_fit_b[,i]
         print <- (print / lag(print ,12) - 1) * 100
-        print <- print[13:length(print)]
-        print <- ts(print, start = c(2001,1), frequency = 12)
-        print <- tail(print, (36 + 100 + 6 - i))
-        month <- start(print)[2]
-        if(month %in% c(1,4,7,10)){
-            print <- aggregate(print, nfrequency = 4, FUN = mean)
-            lines(print, col="green")
-        }
+        print[1:(150+i -4)] <- NA
+
+        print <- ts(print, start = c(2000,1), frequency = 12)
+        print <- aggregate(print, nfrequency = 4, FUN = mean)
+        #lines(print, col="green")
 }
 
 
 #####
 # Out of sample tests Diebold
 ######
+
 Diebold_DM<- c()
 Diebold_p<- c()
+
+#calculate the Diebold Mariano test for each period
 for(i in 1:36){
     Diebold_DM[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$statistic
     Diebold_p[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$p.value
 }
 
-barplot(Diebold_DM,names.arg = 1:36,main = "Diebold Mariano test by period" )
-barplot(Diebold_p,names.arg = 1:36,main = "Diebold Mariano test by period" )
+#plot the results
+# keep only the first month of each quarter
+Diebold_DM <- Diebold_DM[seq(1, length(Diebold_DM), 3)] # first or last month ?
+barplot(Diebold_DM,names.arg = 1:12,main = "Diebold Mariano test by period" )
+Diebold_p <- Diebold_p[seq(1, length(Diebold_p), 3)]
+barplot(Diebold_p,names.arg = 1:12,main = "Diebold Mariano test by period" )
 
 
 #####
@@ -332,8 +363,8 @@ barplot(Diebold_p,names.arg = 1:36,main = "Diebold Mariano test by period" )
 #####
 
 ecm_error <- Error
-#Las column of mean_of_fit
-ecm_forecast <- pourvoir2$Petroleum.products[1:(length(pourvoir2$Petroleum.products)-1)]
+#Last column of mean_of_fit
+ecm_forecast <- pourvoir2$Petroleum.products
 ecm_out <- mean_of_fit
 
 #save

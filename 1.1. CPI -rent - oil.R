@@ -238,7 +238,7 @@ for (i in seq(from = 1, to = 100, by = 12)){
         print[1:(150+i -4)] <- NA
         print <- ts(print, start = c(2000,1), frequency = 12)
         # aggregate to quarterly
-        #print <- aggregate(print, nfrequency = 4, FUN = mean)
+        print <- aggregate(print, nfrequency = 4, FUN = mean)
         #plot
         lines(print, col="blue")
 
@@ -280,7 +280,7 @@ barplot(Diebold_p,names.arg = 1:12,main = "Diebold Mariano test by period" )
 #####
 
 arima_error <- Error
-#Las column of mean_of_fit
+#Last column of mean_of_fit
 arima_forecast <- serie
 arima_out <- mean_of_fit
 
