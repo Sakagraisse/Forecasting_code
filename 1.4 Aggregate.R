@@ -15,6 +15,10 @@ if(!require(whitestrap)) install.packages("whitestrap")
 if(!require(lmtest)) install.packages("lmtest")
 if(!require(xtable)) install.packages("xtable")
 if(!require(sandwich)) install.packages("sandwich")
+if (!requireNamespace("car", quietly = TRUE)) {
+  install.packages("car")
+}
+library(car)
 library(sandwich)
 library(xtable)
 library(lmtest)
@@ -312,6 +316,7 @@ colnames(direct_way) <- c("Period", "P-value")
 direct_way <- xtable(direct_way)
 print(direct_way, type = "latex", floating = FALSE, file = (paste(getwd(), "/Graphs/aggregate/direct_way_aggregate.txt", sep="")))
 
+rm(regression, test)
 ######
 # Mincer Zarnowitz
 ######
@@ -336,22 +341,19 @@ for(i in 1:(ncol(true_value))){
 true_value_aligned <- true_value_aligned[,-1]
 
 
+mz <- data.frame(matrix(NA, nrow = 12))
+for (i in 1:12){
+    temp1 <- as.numeric(true_value_aligned[i,])
+    temp2 <- as.numeric(out_sample_aligned[i,])
+    regression <- lm(temp1 ~ temp2)
+    mztest <- linearHypothesis(regression, c("(Intercept) = 0", "temp2 = 1"), vcov = vcovHC(regression, type = "HC0"))
+    print(linearHypothesis(regression, c("(Intercept) = 0", "temp2 = 1"), vcov = vcovHC(regression, type = "HC0")))
+    mz[i,1] <- as.numeric(mztest$"Pr(>F)"[2])
 
-# do regression
-regression <- lm(as.numeric(true_value_aligned[1,]) ~ as.numeric(out_sample_aligned[1,]))
+}
+mz <- data.frame(seq(1,12,1),mz)
+colnames(mz) <- c("Period", "P-value")
+mz <- xtable(mz)
+print(mz, type = "latex", floating = FALSE, file = (paste(getwd(), "/Graphs/aggregate/Mincer_Z_aggregate.txt", sep="")))
 
-regression2 <- lm(as.numeric(Error[1,]) ~ 1)
-test <- coeftest(regression2, vcov = vcovHC(regression, type = "HC0"))
-
-
-
-# Test alpha = 0
-alpha_test <- coeftest(regression, vcov = vcovHC(regression, type = "HC0"), hypothesis = "intercept = 0")
-alpha_test <- alpha_test[[4]]
-# Test beta = 1
-beta_test <- coeftest(regression, vcov = vcovHC(regression, type = "HC0"), hypothesis = "out_sample_aligned[12,] = 1" )
-beta_test <-
-
-  coeftest(regression, vcov. = vcovHC(regression, type = "HC0"), hypothesis = c("(Intercept)" = 0, "as.numeric(out_sample_aligned[12,])" = 100))
-
-
+rm(temp1, temp2, regression, mztest, i)
