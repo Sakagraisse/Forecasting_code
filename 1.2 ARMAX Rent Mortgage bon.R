@@ -245,7 +245,7 @@ MSFE_pred_by_time <- 1 - (Error_sq/Error_b_sq)
 
 
 pdf(paste(getwd(), "/Graphs/armaX/predictive_r_armaX.pdf", sep=""), width = 13, height = 5)
-barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period" )
+barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period ARIMAX Rent against AR(1)" )
 
 dev.off()
 
@@ -264,7 +264,7 @@ pdf(paste(getwd(), "/Graphs/armaX/spag_armaX.pdf", sep=""), width = 8, height = 
 
 plot(Rent_Y, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs housing rental YoY (1 over 3) ")
 abline(h = mean(Rent_Y, na.rm = TRUE), col = "Black")
-legend("topleft",           # Position of the legend
+legend("bottomright",           # Position of the legend
        legend = c("Observed", "Out-of-Sample Forecast"),  # Legend labels
        col = c("Blue", "Red"),       # Colors
        lty = 1)
@@ -340,7 +340,7 @@ to_plot_2 <- tail(to_plot,13)
 plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "CPI Housing Rent YoY ARMAX (2,2,0) and exogenous Mortgage (2,2,2)")
 lines(to_plot_2, col = "red")
 abline(h = mean(to_plot,, na.rm = TRUE), col = "Black")
-legend("topleft",           # Position of the legend
+legend("bottomright",           # Position of the legend
        legend = c("Observed", "Forecasted", "Mean"),  # Legend labels
        col = c("Blue", "Red", "Black"),       # Colors
        lty = 1)

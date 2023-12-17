@@ -281,7 +281,7 @@ MSFE_pred_by_time <- 1 - (Error_sq/Error_b_sq)
 pdf(paste(getwd(), "/Graphs/ECM/predictive_r_ECM.pdf", sep=""), width = 13, height = 5)
 
 MSFE_pred_by_time <- MSFE_pred_by_time[seq(1, length(MSFE_pred_by_time), 3)] # first or last month ?
-barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period ECM" )
+barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period ECM against AR(1)" )
 
 dev.off()
 
@@ -299,7 +299,7 @@ pdf(paste(getwd(), "/Graphs/ECM/spag_ECM.pdf", sep=""), width = 8, height = 5)
 
 
 
-plot(petro , type = "l", col = "blue", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs Petroleum Products ECM with Crude Oil (1 over 3)")
+plot(petro , type = "l", col = "blue", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs Petroleum Products ECM (1 over 3)")
 abline(h = mean(petro, na.rm = TRUE), col = "Black")
 legend("topleft",           # Position of the legend
        legend = c("Observed", "Out-of-Sample Forecast"),  # Legend labels
@@ -332,7 +332,7 @@ for (i in seq(from = 1, to = 100, by = 3)){
 
         print <- ts(print, start = c(2000,1), frequency = 12)
         print <- aggregate(print, nfrequency = 4, FUN = mean)
-        #lines(print, col="green")
+        lines(print, col="green")
 }
 dev.off()
 
@@ -385,7 +385,7 @@ to_plot <- ts(to_plot, start = c(2000,1), frequency = 12)
 to_plot <- aggregate(to_plot, nfrequency = 4, FUN = mean)
 to_plot_2 <- tail(to_plot,13)
 to_plot[(length(to_plot)-11):length(to_plot)] <- NA
-plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "CPI Petroleum Products ECM with Crude Oil")
+plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "CPI Petroleum Products ECM forecast")
 lines(to_plot_2, col = "red")
 abline(h = mean(to_plot,, na.rm = TRUE), col = "Black")
 legend("topleft",           # Position of the legend

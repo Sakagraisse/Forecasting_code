@@ -98,7 +98,7 @@ aggregateYoY <- ts(aggregateYoY, start = c(2000,1), frequency = 4)
 pdf(paste(getwd(), "/Graphs/aggregate/forecast.pdf", sep=""), width = 8, height = 5)
 
 to_plot <- tail(aggregateYoY, 68)
-plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "Aggregated Model")
+plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "Aggregate Model forecast")
 to_plot_2 <- tail(aggregateYoY, 13)
 lines(to_plot_2, col = "red")
 abline(h = mean(to_plot), col = "Black")
@@ -246,7 +246,7 @@ MSFE_pred_by_time <- 1 - (Error_sq/Error_b_sq)
 
 pdf(paste(getwd(), "/Graphs/aggregate/predictive_r_aggregate.pdf", sep=""), width = 13, height = 5)
 
-barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period Aggregated" )
+barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period Aggregate against AR(1)" )
 
 dev.off()
 
@@ -377,5 +377,3 @@ mz <- xtable(mz)
 print(mz, type = "latex", floating = FALSE, file = (paste(getwd(), "/Graphs/aggregate/Mincer_Z_aggregate.txt", sep="")))
 
 rm(temp1, temp2, regression, mztest, i)
-
-
