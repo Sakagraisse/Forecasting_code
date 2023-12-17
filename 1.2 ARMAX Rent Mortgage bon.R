@@ -334,7 +334,7 @@ save(arimaX_error, arimaX_forecast, arimaX_out , file = "arimaX_forecast.RData")
 
 pdf(paste(getwd(), "/Graphs/armaX/forecast_armaX.pdf", sep=""), width = 8, height = 5)
 to_plot <- (arimaX_forecast / lag(arimaX_forecast, 4) - 1) * 100
-to_plot <- ts(to_plot, start = c(2000,1), frequency = 4)
+to_plot <- ts(to_plot, start = c(2008,4), frequency = 4)
 to_plot_2 <- tail(to_plot,13)
 #to_plot[(length(to_plot)-11):length(to_plot)] <- NA
 plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "CPI Housing Rent YoY ARMAX (2,2,0) and exogenous Mortgage (2,2,2)")

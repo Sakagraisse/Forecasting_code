@@ -11,6 +11,17 @@ if(!require(lubridate)) install.packages("lubridate")
 if(!require(zoo)) install.packages("zoo")
 if(!require(tempdisagg)) install.packages("tempdisagg")
 if(!require(openxlsx)) install.packages("openxlsx")
+if(!require(whitestrap)) install.packages("whitestrap")
+if(!require(lmtest)) install.packages("lmtest")
+if(!require(xtable)) install.packages("xtable")
+if (!requireNamespace("car", quietly = TRUE)) {
+  install.packages("car")
+}
+library(car)
+library(xtable)
+library(lmtest)
+
+library(whitestrap)
 library(readxl)
 library(reshape2)
 library(ecm)
