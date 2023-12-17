@@ -283,7 +283,7 @@ MSFE_pred_by_time <- 1 - (Error_sq/Error_b_sq)
 
 pdf(paste(getwd(), "/Graphs/ECM/predictive_r_ECM.pdf", sep=""), width = 13, height = 5)
 
-MSFE_pred_by_time <- MSFE_pred_by_time[seq(1, length(MSFE_pred_by_time), 3)] # first or last month ?
+MSFE_pred_by_time <- MSFE_pred_by_time[seq(1, length(MSFE_pred_by_time), 3)]
 barplot(MSFE_pred_by_time,names.arg = 1:12,main = "Predictive R_Squared by period ECM against AR(1)" )
 
 dev.off()
@@ -354,7 +354,7 @@ for(i in 1:36){
 
 #plot the results
 # keep only the first month of each quarter
-Diebold_DM <- Diebold_DM[seq(1, length(Diebold_DM), 3)] # first or last month ?
+Diebold_DM <- Diebold_DM[seq(1, length(Diebold_DM), 3)]
 barplot(Diebold_DM,names.arg = 1:12,main = "Diebold Mariano test by period" )
 Diebold_p <- Diebold_p[seq(1, length(Diebold_p), 3)]
 barplot(Diebold_p,names.arg = 1:12,main = "Diebold Mariano test by period" )
