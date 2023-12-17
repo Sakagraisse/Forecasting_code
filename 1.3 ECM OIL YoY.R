@@ -1,26 +1,18 @@
+# Define a list of packages you need
+packages <- c("readxl", "reshape2", "dplyr", "lubridate", "urca", "ecm", "forecast",
+              "tseries", "zoo", "tempdisagg", "openxlsx", "whitestrap", "lmtest", "xtable", "car", "sandwich")
 
-if(!require(readxl)) install.packages("readxl")
-if(!require(reshape2)) install.packages("reshape2")
-if(!require(dplyr)) install.packages("dplyr")
-if(!require(lubridate)) install.packages("lubridate")
-if(!require(urca)) install.packages("urca")
-if(!require(ecm)) install.packages("ecm")
-if(!require(forecast)) install.packages("forecast")
-if(!require(tseries)) install.packages("tseries")
-if(!require(lubridate)) install.packages("lubridate")
-if(!require(zoo)) install.packages("zoo")
-if(!require(tempdisagg)) install.packages("tempdisagg")
-if(!require(openxlsx)) install.packages("openxlsx")
-if(!require(whitestrap)) install.packages("whitestrap")
-if(!require(lmtest)) install.packages("lmtest")
-if(!require(xtable)) install.packages("xtable")
-if (!requireNamespace("car", quietly = TRUE)) {
-  install.packages("car")
+# Loop through the list and install any missing packages
+for (pkg in packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    install.packages(pkg)
+  }
 }
+
+# Load the packages
 library(car)
 library(xtable)
 library(lmtest)
-
 library(whitestrap)
 library(readxl)
 library(reshape2)
@@ -31,9 +23,9 @@ library(lubridate)
 library(zoo)
 library(forecast)
 library(tseries)
-library(lubridate)
 library(tempdisagg)
 library(openxlsx)
+library(sandwich)
 
 ######
 # clean space

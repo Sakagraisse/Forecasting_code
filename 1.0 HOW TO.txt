@@ -1,0 +1,13 @@
+Welcome to our code !
+
+
+To run the code, you just need to run each.R file in the folder "code" in the following order:
+- 1.0 Data crea.R
+- 1.1. CPI -rent - oil.R
+- 1.2 ARMAX Rent Mortgage bon.R
+- 1.3 ECM OIL YoY.R
+- 1.4 Aggregate.R
+
+To check the graphs, you can navigate to the Graphs folder to check the graphs we have created.
+
+To check the results, you can check the data frame after running each.R file.
