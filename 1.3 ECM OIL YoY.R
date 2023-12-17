@@ -163,7 +163,7 @@ create_data_forecast <- function(data_to_use, end_row, steps_ahead) {
   new_rows <- data.frame(matrix(NA, nrow = steps_ahead, ncol = ncol(data_forecast)))
   colnames(new_rows) <- colnames(data_forecast)
 
-  #fill the empty rows with the last row of ECM_Data for B20
+  #fill the empty rows with the last row of data_to_use for B20
   data_forecast <- rbind(data_forecast, new_rows)
   data_forecast$B20[(ll+1:steps_ahead)] <- rep(tail(data_forecast$B20[ll], 1), steps_ahead)
   data_forecast$B20_lag1[(ll+1:steps_ahead)] <- rep(tail(data_forecast$B20[ll], 1), steps_ahead)
