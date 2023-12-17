@@ -58,7 +58,7 @@ rm(exchange_rate)
 ECM_Data <- ECM_Data[,c(1,2,5)]
 # convert oil_price$MCOILWTICO to swiss francs
 ECM_Data$OIL_CHF <- ECM_Data$MCOILWTICO * ECM_Data$USD_to_CHF
-# convert OIL_CHF in proportion of 2010-12-01 prices
+# convert OIL_CHF in proportion of 2020-12-01 prices
 ECM_Data$B20 <- (ECM_Data$OIL_CHF / ECM_Data$OIL_CHF[which(ECM_Data$Date == "2020-12-01")] ) * 100
 
 ######
