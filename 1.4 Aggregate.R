@@ -95,7 +95,7 @@ aggregateYoY <- (aggregate / lag(aggregate, 4) - 1) * 100
 aggregateYoY <- ts(aggregateYoY, start = c(2000,1), frequency = 4)
 
 #plot the aggregate YoY
-pdf(paste(getwd(), "/Graphs/aggregate/forecast.pdf", sep=""), width = 10, height = 5)
+pdf(paste(getwd(), "/Graphs/aggregate/forecast.pdf", sep=""), width = 8, height = 5)
 
 to_plot <- tail(aggregateYoY, 68)
 plot(to_plot, type = "l", col = "blue", xlab = "Year", ylab = "Inflation YoY", main = "Aggregated Model")
@@ -260,7 +260,7 @@ cpi_without_approx <- cpi_without_approx[5:length(cpi_without_approx)]
 cpi_without_approx <- ts(cpi_without_approx, start = c(2001,1), frequency = 4)
 cpi_without_approx <- tail(cpi_without_approx, 56)
 
-pdf((paste(getwd(), "/Graphs/aggregate/spag.pdf", sep="")), width = 13, height = 5)
+pdf((paste(getwd(), "/Graphs/aggregate/spag.pdf", sep="")), width = 8, height = 5)
 
 
 
@@ -303,10 +303,10 @@ dev.off()
 Diebold_DM<- c()
 Diebold_p<- c()
 
-#create the Diebold Mariano test for each period
+#create the Diebold Mariano test for each period power = 1 due to alread aggregated data of squared errors
 for(i in 1:12){
-    Diebold_DM[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$statistic
-    Diebold_p[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$p.value
+    Diebold_DM[i] <- dm.test(Error_sq, Error_b_sq, alternative = "two.sided", h = i, power = 1,varestimator = "bartlett")$statistic
+    Diebold_p[i] <- dm.test(Error_sq, Error_b_sq, alternative = "two.sided", h = i, power = 1,varestimator = "bartlett")$p.value
 }
 
 #plot the Diebold Mariano test

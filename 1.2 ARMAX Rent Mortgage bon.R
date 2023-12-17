@@ -260,7 +260,7 @@ Rent_Y <- (temp / lag(temp, 4) - 1) * 100
 Rent_Y <- Rent_Y[5:length(Rent_Y)]
 Rent_Y <- ts(Rent_Y, start = c(2009,4), frequency = 4)
 
-pdf(paste(getwd(), "/Graphs/armaX/spag_armaX.pdf", sep=""), width = 10, height = 5)
+pdf(paste(getwd(), "/Graphs/armaX/spag_armaX.pdf", sep=""), width = 8, height = 5)
 
 plot(Rent_Y, type = "l", col = "red", xlab = "Year", ylab = "Inflation", main = "Spaghetti graph CPIs housing rental YoY (1 over 3) ")
 abline(h = mean(Rent_Y, na.rm = TRUE), col = "Black")
@@ -302,10 +302,10 @@ dev.off()
 Diebold_DM<- c()
 Diebold_p<- c()
 
-#calculate the Diebold Mariano test for each period
+#calculate the Diebold Mariano test for each period power = 1 due to alread aggregated data of squared errors
 for(i in 1:12){
-    Diebold_DM[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$statistic
-    Diebold_p[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$p.value
+    Diebold_DM[i] <- dm.test(Error_sq, Error_b_sq, alternative = "two.sided", h = i, power = 1,varestimator = "bartlett")$statistic
+    Diebold_p[i] <- dm.test(Error_sq, Error_b_sq, alternative = "two.sided", h = i, power = 1,varestimator = "bartlett")$p.value
 }
 
 barplot(Diebold_DM,names.arg = 1:12,main = "Diebold Mariano test by period" )
@@ -332,7 +332,7 @@ save(arimaX_error, arimaX_forecast, arimaX_out , file = "arimaX_forecast.RData")
 # plot forecast
 #####
 
-pdf(paste(getwd(), "/Graphs/armaX/forecast_armaX.pdf", sep=""), width = 10, height = 5)
+pdf(paste(getwd(), "/Graphs/armaX/forecast_armaX.pdf", sep=""), width = 8, height = 5)
 to_plot <- (arimaX_forecast / lag(arimaX_forecast, 4) - 1) * 100
 to_plot <- ts(to_plot, start = c(2000,1), frequency = 4)
 to_plot_2 <- tail(to_plot,13)

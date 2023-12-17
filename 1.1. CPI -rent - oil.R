@@ -226,7 +226,7 @@ cpi_without_approx <- cpi_without_approx[13:length(cpi_without_approx)]
 cpi_without_approx <- ts(cpi_without_approx, start = c(2001,1), frequency = 12)
 cpi_without_approx <- aggregate(cpi_without_approx, nfrequency = 4, FUN = mean)
 
-pdf(paste(getwd(), "/Graphs/double minus/spag_double_minus.pdf", sep=""), width = 13, height = 5)
+pdf(paste(getwd(), "/Graphs/double minus/spag_double_minus.pdf", sep=""), width = 8, height = 5)
 
 
 #plot the series
@@ -275,8 +275,8 @@ Diebold_p<- c()
 
 #calculate the Diebold Mariano test for each period
 for(i in 1:36){
-    Diebold_DM[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$statistic
-    Diebold_p[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$p.value
+    Diebold_DM[i] <- dm.test(Error_sq, Error_b_sq, alternative = "two.sided", h = i, power = 1,varestimator = "bartlett")$statistic
+    Diebold_p[i] <- dm.test(Error_sq, Error_b_sq, alternative = "two.sided", h = i, power = 1,varestimator = "bartlett")$p.value
 }
 
 #plot the results
@@ -309,7 +309,7 @@ save(arima_error, arima_forecast, arima_out , file = "arima_forecast.RData")
 # plot forecast
 #####
 
-pdf(paste(getwd(), "/Graphs/double minus/forecast_double_minus.pdf", sep=""), width = 10, height = 5)
+pdf(paste(getwd(), "/Graphs/double minus/forecast_double_minus.pdf", sep=""), width = 8, height = 5)
 to_plot <- (arima_forecast / lag(arima_forecast, 12) - 1) * 100
 to_plot <- ts(to_plot, start = c(2000,1), frequency = 12)
 to_plot <- aggregate(to_plot, nfrequency = 4, FUN = mean)

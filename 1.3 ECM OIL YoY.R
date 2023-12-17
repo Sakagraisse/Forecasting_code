@@ -295,7 +295,7 @@ petro <- aggregate(petro, nfrequency = 4, FUN = mean)
 
 
 
-pdf(paste(getwd(), "/Graphs/ECM/spag_ECM.pdf", sep=""), width = 10, height = 5)
+pdf(paste(getwd(), "/Graphs/ECM/spag_ECM.pdf", sep=""), width = 8, height = 5)
 
 
 
@@ -343,10 +343,10 @@ dev.off()
 Diebold_DM<- c()
 Diebold_p<- c()
 
-#calculate the Diebold Mariano test for each period
+#calculate the Diebold Mariano test for each period power = 1 due to alread aggregated data of squared errors
 for(i in 1:36){
-    Diebold_DM[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$statistic
-    Diebold_p[i] <- dm.test(Error_ag, Error_b_ag, alternative = "two.sided", h = i, power = 2,varestimator = "bartlett")$p.value
+    Diebold_DM[i] <- dm.test(Error_sq, Error_b_sq, alternative = "two.sided", h = i, power = 1,varestimator = "bartlett")$statistic
+    Diebold_p[i] <- dm.test(Error_sq, Error_b_sq, alternative = "two.sided", h = i, power = 1,varestimator = "bartlett")$p.value
 }
 
 #plot the results
@@ -379,7 +379,7 @@ save(ecm_error, ecm_forecast, ecm_out, file = "ecm_forecast.RData")
 # plot forecast
 #####
 
-pdf(paste(getwd(), "/Graphs/ECM/forecast_ECM.pdf", sep=""), width = 10, height = 5)
+pdf(paste(getwd(), "/Graphs/ECM/forecast_ECM.pdf", sep=""), width = 8, height = 5)
 to_plot <- (ecm_forecast / lag(ecm_forecast, 12) - 1) * 100
 to_plot <- ts(to_plot, start = c(2000,1), frequency = 12)
 to_plot <- aggregate(to_plot, nfrequency = 4, FUN = mean)
